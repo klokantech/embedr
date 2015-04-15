@@ -24,7 +24,7 @@
       <h3>Set of "big" images with size 4MB-13MB</h3>
 {% for member in site.data.big %}
   <div>
-  	<a href="http://klokantech.github.io/iiifviewer/#http://iiifhawk.klokantech.com/{{ big.identifier }}/info.json"><img src="/{{ big.identifier }}/full/50,/0/native.jpg" width="50px"/></a><a href="/cgi-bin/iiifserver.fcgi?iiif={{ big.identifier }}.jp2/info.json">json</a>
+  	<a href="http://klokantech.github.io/iiifviewer/#http://iiifhawk.klokantech.com/{{ member.identifier }}/info.json"><img src="http://iiifhawk.klokantech.com/{{ member.identifier }}/full/50,/0/native.jpg" width="50px"/></a><a href="http://iiifhawk.klokantech.com/cgi-bin/iiifserver.fcgi?iiif={{ member.identifier }}.jp2/info.json">json</a>
   </div>
 {% endfor %}
 	  <h3>Set of "medium" images with size 2.2MB-2.4MB</h3>
