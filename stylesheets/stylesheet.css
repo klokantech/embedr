@@ -249,11 +249,14 @@ a {
 .container > div {
   margin: 5px;
   width: 150px;
-  height: 100px;
   float: left;
   color: #fff;
   text-align: center;
 }
 .container a{
   display: block;
+}
+
+.container > div > a{
+  height: 100px;
 }
