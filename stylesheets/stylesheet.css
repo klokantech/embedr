@@ -257,3 +257,6 @@ a {
   color: #fff;
   text-align: center;
 }
+.container a{
+  display: block;
+}
