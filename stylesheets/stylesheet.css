@@ -243,3 +243,17 @@ a {
 @media screen and (max-width: 42em) {
   .site-footer {
     font-size: 0.9rem; } }
+
+.container {
+  overflow: auto;
+  display: block;
+}
+.container > div {
+  margin: 20px;
+  width: 150px;
+  height: 100px;
+  background: blue;
+  float: left;
+  color: #fff;
+  text-align: center;
+}
