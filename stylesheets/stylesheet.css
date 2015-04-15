@@ -257,6 +257,6 @@ a {
   display: block;
 }
 
-.container > div > a{
+.container > div > a.thumbnail{
   height: 100px;
 }
