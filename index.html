@@ -28,7 +28,17 @@
   </div>
 {% endfor %}
 	  <h3>Set of "medium" images with size 2.2MB-2.4MB</h3>
+{% for member in site.data.medium %}
+  <div>
+  	<a href="http://klokantech.github.io/iiifviewer/#http://iiifhawk.klokantech.com/{{ member.identifier }}/info.json"><img src="http://iiifhawk.klokantech.com/{{ member.identifier }}/full/50,/0/native.jpg" width="50px"/></a><a href="http://iiifhawk.klokantech.com/cgi-bin/iiifserver.fcgi?iiif={{ member.identifier }}.jp2/info.json">json</a>
+  </div>
+{% endfor %}
 	  <h3>Set of "small" images with size 10KB-1.5MB</h3>
+{% for member in site.data.small %}
+  <div>
+  	<a href="http://klokantech.github.io/iiifviewer/#http://iiifhawk.klokantech.com/{{ member.identifier }}/info.json"><img src="http://iiifhawk.klokantech.com/{{ member.identifier }}/full/50,/0/native.jpg" width="50px"/></a><a href="http://iiifhawk.klokantech.com/cgi-bin/iiifserver.fcgi?iiif={{ member.identifier }}.jp2/info.json">json</a>
+  </div>
+{% endfor %}
       <footer class="site-footer">
         <span class="site-footer-owner"><a href="https://github.com/klokantech/hawk">Hawk</a> is maintained by <a href="https://github.com/klokantech">klokantech</a>.</span>
 
