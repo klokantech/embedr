@@ -1,0 +1,9 @@
+title: HAWK Embeddable Viewer
+h1: Viewer
+
+at_id: "http://iiifhawk.klokantech.com/BM_Maps_100204668"
+width: 13007
+height: 8850
+tile_width: 256
+tile_height: 256
+scale_factors: "[1,2,4,8,16,32,64]"

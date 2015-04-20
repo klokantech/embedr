@@ -1,0 +1,65 @@
+---
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+    <meta name="description" content="">
+    <meta name="google" value="notranslate">
+    <meta name="author" content="Klokan Technologies GmbH (http://www.klokantech.com/)">
+    <title>{{ site.data.embed.title }}</title>
+
+    <script src="http://klokantech.github.io/iiifviewer/iiifviewer.js"></script>
+    <style>
+      html, body {width:100%;height:100%;margin:0;padding:0; font-family: Verdana, Geneva, sans-serif;}
+      #title {position: absolute; background-color: rgba(255, 255, 255, 0.8); z-index: 10;}
+      #title{top: 10px; left: 10px; padding: 10px 10px 7px 10px;}
+      h1{margin: 5px 10px;}
+    </style>
+  </head>
+  <body>
+    <div id="title"><h1>{{ site.data.embed.h1 }}</h1></div>
+    <div id="map" style="width:100%;height:100%;"></div>
+
+    <script type="text/javascript">
+      new IiifViewer('map', {
+        //"@context": "http://iiif.io/api/image/2/context.json",
+        "@id": "{{ site.data.embed.at_id }}",
+        //protocol: "http://iiif.io/api/image",
+        width: {{ site.data.embed.width }},
+        height: {{ site.data.embed.height }},
+        tiles: [
+          {
+            width: {{ site.data.embed.tile_width }},
+            height: {{ site.data.embed.tile_height }},
+            scaleFactors: {{ site.data.embed.scale_factors }}
+          }
+        ]
+        /*,
+        profile: [
+          "http://iiif.io/api/image/2/level1.json",
+          {
+            formats: [
+              "jpg"
+            ],
+            qualities: [
+              "native",
+              "color",
+              "gray"
+            ],
+            supports: [
+              "regionByPct",
+              "sizeByForcedWh",
+              "sizeByWh",
+              "sizeAboveFull",
+              "rotationBy90s",
+              "mirroring",
+              "gray"
+            ]
+          }
+        ]*/
+      });
+    </script>
+  </body>
+</html>
