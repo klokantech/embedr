@@ -26,43 +26,7 @@
       OpenSeadragon({
         id: 'map',
         showNavigationControl: false,
-        tileSources: {
-          "@context": "http://iiif.io/api/image/2/context.json",
-          "@id": "{{ site.data.embed.at_id }}",
-          protocol: "http://iiif.io/api/image",
-          width: {{ site.data.embed.width }},
-          height: {{ site.data.embed.height }},
-          tiles: [
-            {
-              width: {{ site.data.embed.tile_width }},
-              height: {{ site.data.embed.tile_height }},
-              scaleFactors: {{ site.data.embed.scale_factors }}
-            }
-          ]
-          /*,
-          profile: [
-            "http://iiif.io/api/image/2/level1.json",
-            {
-              formats: [
-                "jpg"
-              ],
-              qualities: [
-                "native",
-                "color",
-                "gray"
-              ],
-              supports: [
-                "regionByPct",
-                "sizeByForcedWh",
-                "sizeByWh",
-                "sizeAboveFull",
-                "rotationBy90s",
-                "mirroring",
-                "gray"
-              ]
-            }
-          ]*/
-        }
+        tileSources: {{ site.data.embed_BM_Maps_100204668 | jsonify}}
       });
     </script>
   </body>

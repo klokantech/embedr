@@ -1,0 +1,16 @@
+{
+  "@context" : "http://iiif.io/api/image/2/context.json",
+  "@id" : "http://iiifhawk.klokantech.com/BM_Maps_100204668",
+  "protocol" : "http://iiif.io/api/image",
+  "width" : 13007,
+  "height" : 8850,
+  "tiles" : [
+     { "width" : 256, "height" : 256, "scaleFactors" : [ 1, 2, 4, 8, 16, 32, 64 ] }
+  ],
+  "profile" : [
+     "http://iiif.io/api/image/2/level1.json",
+     { "formats" : [ "jpg" ],
+       "qualities" : [ "native","color","gray" ],
+       "supports" : ["regionByPct","sizeByForcedWh","sizeByWh","sizeAboveFull","rotationBy90s","mirroring","gray"] }
+  ]
+}
