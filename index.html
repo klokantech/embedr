@@ -21,6 +21,32 @@
     </section>
 
     <section class="main-content">
+      <h3>Set of "lossy" images</h3>
+<div class="container">
+{% for member in site.data.lossy1 %}
+  <div>
+  	<a href="http://klokantech.github.io/iiifviewer/#http://iiifhawk.klokantech.com/{{ member.identifier }}/info.json" class="thumbnail">
+  		<img src="http://iiifhawk.klokantech.com/{{ member.identifier }}/full/,100/0/native.jpg" heigth="100px"/>
+  	</a>
+  	<a href="http://iiifhawk.klokantech.com/cgi-bin/iiifserver.fcgi?iiif={{ member.identifier }}.jp2/info.json">
+  		json
+  	</a>
+  </div>
+{% endfor %}
+</div>
+      <h3>Set of "lossless" images</h3>
+<div class="container">
+{% for member in site.data.lossless1 %}
+  <div>
+  	<a href="http://klokantech.github.io/iiifviewer/#http://iiifhawk.klokantech.com/{{ member.identifier }}/info.json" class="thumbnail">
+  		<img src="http://iiifhawk.klokantech.com/{{ member.identifier }}/full/,100/0/native.jpg" heigth="100px"/>
+  	</a>
+  	<a href="http://iiifhawk.klokantech.com/cgi-bin/iiifserver.fcgi?iiif={{ member.identifier }}.jp2/info.json">
+  		json
+  	</a>
+  </div>
+{% endfor %}
+</div>
       <h3>Set of "big" images with size 4MB-13MB</h3>
 <div class="container">
 {% for member in site.data.big %}
