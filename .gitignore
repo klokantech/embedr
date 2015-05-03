@@ -1,4 +1,4 @@
-config.py
+#config.py
 *.pyc
 app.sqlite
 db_repository/
