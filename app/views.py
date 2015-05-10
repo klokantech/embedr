@@ -8,6 +8,7 @@ import requests
 from app import app
 from models import Image
 
+
 @app.route('/oembed/<unique_id>')
 def oEmbed(unique_id):
 	image = Image.query.get_or_404(unique_id)
@@ -22,7 +23,7 @@ def iFrame(unique_id):
 	r = requests.get(app.config['IIIF_SERVER'] + '/' + unique_id + '/info.json')
 	image.meta = json.dumps(r.json())
 	
-	return render_template('iframe.html', data = image)
+	return render_template('iframe_openseadragon_inline.html', data = image)
 
 
 @app.route('/iiif/<unique_id>/manifest.json')
@@ -34,6 +35,7 @@ def iiifMeta(unique_id):
 	return render_template('iiifmeta.html', data = image)
 
 
-@app.route('/ingest')
+@app.route('/ingest', methods=['POST'])
 def ingest():
+	ingestion_task()
 	return "", 200
