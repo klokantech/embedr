@@ -5,7 +5,7 @@
     <meta name="description" content="">
     <meta name="google" value="notranslate">
     <meta name="author" content="Klokan Technologies GmbH (http://www.klokantech.com/)">
-    <title>HAWK Embeddable Viewer</title>
+    <title>{{data['title']}}</title>
 
     <script src="/static/js/openseadragon.min.js"></script>
     <style>
@@ -16,14 +16,14 @@
     </style>
   </head>
   <body>
-    <div id="title"><h1>Viewer</h1></div>
+    <div id="title"><h1>{{data['title']}}</h1></div>
     <div id="map" style="width:100%;height:100%;"></div>
 
     <script type="text/javascript">
       OpenSeadragon({
         id: 'map',
         showNavigationControl: false,
-        tileSources: {{ data.meta | safe}}
+        tileSources: {{ data['image_meta'] | safe}}
       });
     </script>
   </body>

@@ -3,3 +3,5 @@
 app.sqlite
 db_repository/
 venv/
+*.DS_Store
+data/

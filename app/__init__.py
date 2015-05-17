@@ -1,12 +1,13 @@
 """Module which initialize flask aplication on start time"""
 
 from flask import Flask
-from flask.ext.sqlalchemy import SQLAlchemy
-
+import redis
 
 app = Flask(__name__)
 app.config.from_object('config')
 
-db = SQLAlchemy(app)
+db = redis.StrictRedis(host=app.config['REDIS_HOST'],
+          port=app.config['REDIS_PORT'],
+          db=0)
 
 from app import views
