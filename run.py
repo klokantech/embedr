@@ -1,7 +1,10 @@
-#!venv/bin/python
+"""Script for start of aplication in local debug mode"""
 
-"""Script for start of aplication in debug server"""
+import os
 
-from app import app
+from app import app_factory
 
-app.run(debug = True, host='0.0.0.0')
+app = app_factory(os.path.join(os.path.abspath(os.path.dirname(__file__)), 'config_run.py'))
+
+if __name__ == "__main__":
+    app.run(debug = True)

@@ -17,9 +17,6 @@ nginx:
 
 embedhawk:
   build: .
-#  command: python /usr/local/src/hawk/run.py
-#  ports:
-#    - "5000:5000"
   command: /usr/local/bin/supervisord -c /etc/supervisord/supervisord.conf
   expose:
     - "5000"

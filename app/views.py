@@ -2,31 +2,36 @@
 
 import sys
 
-from flask import request, render_template, abort, url_for
+from flask import request, render_template, abort, url_for, g
 import simplejson as json
+from flask import current_app as app
 
-from app import app, db
-from factory import ManifestFactory
+from iiif_manifest_factory import ManifestFactory
 
 
-@app.route('/oembed/<unique_id>')
+#@app.before_request
+def before_request():
+	g.db = app.extensions['redis'].redis
+
+
+#@app.route('/oembed/<unique_id>')
 def oEmbed(unique_id):
-	item = db.get(unique_id)
-	
+	item = g.db.get(unique_id)
+
 	if not item:
 		abort(404)
-	
+
 	try:
 		item = json.loads(item)
 	except:
 		abort(500)
-	
+
 	return render_template('oembed.html', data = item)
 
 
-@app.route('/<unique_id>')
+#@app.route('/<unique_id>')
 def iFrame(unique_id):
-	item = db.get(unique_id)
+	item = g.db.get(unique_id)
 	
 	if not item:
 		abort(404)
@@ -44,9 +49,9 @@ def iFrame(unique_id):
 	return render_template('iframe_openseadragon_inline.html', data = item)
 
 
-@app.route('/iiif/<unique_id>/manifest.json')
+#@app.route('/iiif/<unique_id>/manifest.json')
 def iiifMeta(unique_id):
-	item = db.get(unique_id)
+	item = g.db.get(unique_id)
 	
 	if not item:
 		abort(404)
@@ -77,6 +82,6 @@ def iiifMeta(unique_id):
 	return json.JSONEncoder().encode(mf.toJSON()), 200
 
 
-@app.route('/ingest', methods=['POST'])
+#@app.route('/ingest', methods=['POST'])
 def ingest():
 	return "", 200
