@@ -1,6 +1,7 @@
 """Module which defines views - actions for url passed requests"""
 
 import sys
+import os
 
 from flask import request, render_template, abort, url_for, g
 import simplejson as json
@@ -61,25 +62,36 @@ def iiifMeta(unique_id):
 	except:
 		abort(500)
 	
+	if item.has_key('image_meta') and item['image_meta'][0].has_key('height'):
+		height = item['image_meta'][0]['height']
+	else:
+		height = 1
+
+	if item.has_key('image_meta') and item['image_meta'][0].has_key('width'):
+		width = item['image_meta'][0]['width']
+	else:
+		width = 1
+	
 	fac = ManifestFactory()
 	fac.set_base_metadata_uri(app.config['SERVER_NAME'] + '/iiif')
-	fac.set_base_image_uri(app.config['SERVER_NAME'] + '/oembed' + unique_id)
+	fac.set_base_metadata_dir(os.path.abspath(os.path.dirname(__file__)))
+	fac.set_base_image_uri(app.config['IIIF_SERVER'])
 	fac.set_iiif_image_info(2.0, 2)
 	
-	mf = fac.manifest(ident=url_for('iiifMeta', unique_id=unique_id, _external=True), label=item['title'])
-	mf.description = "This is a longer description of the manifest"
+	mf = fac.manifest(ident=url_for('iiifMeta', unique_id=unique_id, _external=True), label='Manifest of ' + unique_id)
 	
-	seq = mf.sequence(ident='1', label='Sequence 1')
+	seq = mf.sequence(label='Item %s - sequence 1' % unique_id)
 
-	cvs = seq.canvas(ident=url_for('iiifMeta', unique_id=unique_id, _external=True), label="Canvas 1")
-	cvs.set_hw(item['image_meta'][0]['height'], item['image_meta'][0]['width'])
+	cvs = seq.canvas(ident='http://' + app.config['SERVER_NAME'] + '/canvas/c1.json', label='Item %s - canvas 1' % unique_id)
+	cvs.set_hw(height, width)
 	
-	anno = cvs.annotation(ident=url_for('iiifMeta', unique_id=unique_id, _external=True))
-	img = anno.image(ident='1')
-	img.height = cvs.height
-	img.width = cvs.width
-	
-	return json.JSONEncoder().encode(mf.toJSON()), 200
+	anno = cvs.annotation()
+
+	img = anno.image(ident='/' + unique_id + '/full/full/0/native.jpg')
+	img.height = height
+	img.width = width
+
+	return json.JSONEncoder().encode(mf.toJSON(top=True)), 200, {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'}
 
 
 #@app.route('/ingest', methods=['POST'])
