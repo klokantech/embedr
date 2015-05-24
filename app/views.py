@@ -15,6 +15,11 @@ def before_request():
 	g.db = app.extensions['redis'].redis
 
 
+#@app.route('/')
+def index():
+	return render_template('index.html')
+
+
 #@app.route('/oembed/<unique_id>')
 def oEmbed(unique_id):
 	item = g.db.get(unique_id)

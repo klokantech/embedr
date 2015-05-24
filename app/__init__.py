@@ -11,6 +11,7 @@ def app_factory(config):
 	redis = Redis()
 	redis.init_app(app)
 
+	app.route('/')(views.index)
 	app.route('/oembed/<unique_id>')(views.oEmbed)
 	app.route('/<unique_id>')(views.iFrame)
 	app.route('/iiif/<unique_id>/manifest.json')(views.iiifMeta)
