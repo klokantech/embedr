@@ -77,6 +77,9 @@ def iiifMeta(unique_id):
 	else:
 		width = 1
 	
+	height = 763
+	width = 1000
+	
 	fac = ManifestFactory()
 	fac.set_base_metadata_uri(app.config['SERVER_NAME'] + '/iiif')
 	fac.set_base_metadata_dir(os.path.abspath(os.path.dirname(__file__)))
@@ -95,6 +98,7 @@ def iiifMeta(unique_id):
 	img = anno.image(ident='/' + unique_id + '/full/full/0/native.jpg')
 	img.height = height
 	img.width = width
+	img.add_service(ident=app.config['IIIF_SERVER'] + '/' + unique_id, context='http://iiif.io/api/image/2/context.json')
 
 	return json.JSONEncoder().encode(mf.toJSON(top=True)), 200, {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'}
 
