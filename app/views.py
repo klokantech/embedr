@@ -77,9 +77,6 @@ def iiifMeta(unique_id):
 	else:
 		width = 1
 	
-	height = 763
-	width = 1000
-	
 	fac = ManifestFactory()
 	fac.set_base_metadata_uri(app.config['SERVER_NAME'] + '/iiif')
 	fac.set_base_metadata_dir(os.path.abspath(os.path.dirname(__file__)))
