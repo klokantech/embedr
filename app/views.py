@@ -20,6 +20,14 @@ def index():
 	return render_template('index.html')
 
 
+#@app.route('/oembed', methods=['GET'])
+def oEmbed_API():
+	url = request.args.get('url', None)
+	
+	if url is None:
+		abort(404)
+	return "", 200
+
 #@app.route('/oembed/<unique_id>')
 def oEmbed(unique_id):
 	item = g.db.get(unique_id)
@@ -77,13 +85,18 @@ def iiifMeta(unique_id):
 	else:
 		width = 1
 	
+	if item.has_key('title'):
+		title = item['title']
+	else:
+		title = ''
+	
 	fac = ManifestFactory()
 	fac.set_base_metadata_uri(app.config['SERVER_NAME'] + '/iiif')
 	fac.set_base_metadata_dir(os.path.abspath(os.path.dirname(__file__)))
 	fac.set_base_image_uri(app.config['IIIF_SERVER'])
 	fac.set_iiif_image_info(2.0, 2)
 	
-	mf = fac.manifest(ident=url_for('iiifMeta', unique_id=unique_id, _external=True), label='Manifest of ' + unique_id)
+	mf = fac.manifest(ident=url_for('iiifMeta', unique_id=unique_id, _external=True), label=title)
 	
 	seq = mf.sequence(label='Item %s - sequence 1' % unique_id)
 
