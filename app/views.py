@@ -167,7 +167,7 @@ def oEmbed(unique_id):
 	if not item.has_key('title'):
 		item['title'] = ''
 
-	return render_template('img.html', data = item)
+	return render_template('oembed_img.html', data = item)
 
 
 #@app.route('/<unique_id>')
