@@ -1,0 +1,16 @@
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <meta name="author" content="Klokan Technologies GmbH (http://www.klokantech.com/)">
+    <link rel="alternate" type="application/json+oembed"
+  href="{{url_for('oEmbed_API', _external=True)}}?url={{url_for('oEmbed', unique_id=data['id'], _external=True) | urlencode}}&format=json"
+  title="{{data['title']}} oEmbed Profile" />
+<link rel="alternate" type="text/xml+oembed"
+  href="{{url_for('oEmbed_API', _external=True)}}?url={{url_for('oEmbed', unique_id=data['id'], _external=True) | urlencode}}&format=xml"
+  title="{{data['title']}} oEmbed Profile" />
+    <title>{{data['title']}}</title>
+  </head>
+  <body>
+	<img src='{{config.IIIF_SERVER}}/{{data['id']}}/full/full/0/native.jpg' />
+  </body>
+</html>
