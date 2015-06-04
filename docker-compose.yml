@@ -24,3 +24,14 @@ embedhawk:
     - redis
   volumes:
     - ./:/usr/local/src/hawk/
+
+ingest:
+  build: ./ingest
+  links:
+    - redis
+  volumes:
+    - ./:/usr/local/src/hawk/
+    - .boto:/etc/boto.cfg
+  environment:
+    - C_FORCE_ROOT=true
+  command: celery -A app --app=app.queue.queue_app worker -l info --workdir=/usr/local/src/hawk/

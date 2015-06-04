@@ -23,7 +23,7 @@
       OpenSeadragon({
         id: 'map',
         showNavigationControl: false,
-        tileSources: {{ data['image_meta'] | safe}}
+        tileSources: {{ data['image_meta'].itervalues().next() | safe}}
       });
     </script>
   </body>

@@ -1,4 +1,4 @@
-"""Module which initialize flask aplication on start time"""
+"""Module which provides flask aplication factory"""
 
 from flask import Flask
 from app import views
@@ -16,6 +16,7 @@ def app_factory(config):
 	app.route('/oembed/<unique_id>')(views.oEmbed)
 	app.route('/<unique_id>')(views.iFrame)
 	app.route('/iiif/<unique_id>/manifest.json')(views.iiifMeta)
+	app.route('/ingest', methods=['GET', 'POST'])(views.ingest)
 
 	app.before_request(views.before_request)
 
