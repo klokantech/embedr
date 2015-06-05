@@ -5,6 +5,9 @@
     <meta name="description" content="">
     <meta name="google" value="notranslate">
     <meta name="author" content="Klokan Technologies GmbH (http://www.klokantech.com/)">
+    <link rel="alternate" type="application/json+oembed" href="{{url_for('oEmbed', _external=True)}}?url={{url_for('iFrame', unique_id=data['id'], _external=True) | urlencode}}&format=json" title="{{data['title']}} oEmbed Profile" />
+	<link rel="alternate" type="text/xml+oembed" href="{{url_for('oEmbed', _external=True)}}?url={{url_for('iFrame', unique_id=data['id'], _external=True) | urlencode}}&format=xml" title="{{data['title']}} oEmbed Profile" />
+
     <title>{{data['title']}}</title>
 
     <script src="/static/js/openseadragon.min.js"></script>

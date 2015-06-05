@@ -14,8 +14,8 @@ from iiif_manifest_factory import ManifestFactory
 from ingest import ingestQueue
 
 
-oembed_url_regular = re.compile(r"""
-	^/oembed/
+item_url_regular = re.compile(r"""
+	^/
 	(?P<unique_id>.+)
 	""", re.VERBOSE)
 
@@ -35,8 +35,81 @@ def index():
 	return render_template('index.html')
 
 
-#@app.route('/oembedprovider', methods=['GET'])
-def oEmbed_API():
+#@app.route('/<unique_id>')
+def iFrame(unique_id):
+	item = g.db.get(unique_id)
+	
+	if not item:
+		abort(404)
+	
+	try:
+		item = json.loads(item)
+	except:
+		abort(500)
+	
+	if not item.has_key('title'):
+		item['title'] = ''
+	
+	if type(item['image_meta']) == list:
+		for i in item['image_meta']:
+			item['image_meta'] = json.dumps(i)
+			break
+		
+	return render_template('iframe_openseadragon_inline.html', data = item)
+
+
+#@app.route('/<unique_id>/manifest.json')
+def iiifMeta(unique_id):
+	item = g.db.get(unique_id)
+	
+	if not item:
+		abort(404)
+	
+	try:
+		item = json.loads(item)
+	except:
+		abort(500)
+
+	if item.has_key('image_meta') and item['image_meta'].itervalues().next().has_key('width'):
+		width = item['image_meta'].itervalues().next()['width']
+	else:
+		width = 1
+
+	if item.has_key('image_meta') and item['image_meta'].itervalues().next().has_key('height'):
+		height = item['image_meta'].itervalues().next()['height']
+	else:
+		height = 1
+	
+	if item.has_key('title'):
+		title = item['title']
+	else:
+		title = ''
+	
+	fac = ManifestFactory()
+	fac.set_base_metadata_uri(app.config['SERVER_NAME'])
+	fac.set_base_metadata_dir(os.path.abspath(os.path.dirname(__file__)))
+	fac.set_base_image_uri(app.config['IIIF_SERVER'])
+	fac.set_iiif_image_info(2.0, 2)
+	
+	mf = fac.manifest(ident=url_for('iiifMeta', unique_id=unique_id, _external=True), label=title)
+	
+	seq = mf.sequence(label='Item %s - sequence 1' % unique_id)
+
+	cvs = seq.canvas(ident='http://' + app.config['SERVER_NAME'] + '/canvas/c1.json', label='Item %s - canvas 1' % unique_id)
+	cvs.set_hw(height, width)
+	
+	anno = cvs.annotation()
+
+	img = anno.image(ident='/' + unique_id + '_0/full/full/0/native.jpg')
+	img.height = height
+	img.width = width
+	img.add_service(ident=app.config['IIIF_SERVER'] + '/' + unique_id, context='http://iiif.io/api/image/2/context.json')
+
+	return json.JSONEncoder().encode(mf.toJSON(top=True)), 200, {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'}
+
+
+#@app.route('/oembed', methods=['GET'])
+def oEmbed():
 	url = request.args.get('url', None)
 	
 	if url is None:
@@ -58,7 +131,7 @@ def oEmbed_API():
 	if p_url.netloc != app.config['SERVER_NAME']:
 		abort(404)
 	
-	test = oembed_url_regular.search(p_url.path)
+	test = item_url_regular.search(p_url.path)
 		
 	if test:
 		unique_id = test.group('unique_id')
@@ -84,13 +157,13 @@ def oEmbed_API():
 	if maxheight is not None:
 		maxheight = int(maxheight)
 
-	if item.has_key('image_meta') and item['image_meta'][0].has_key('width'):
-		width = int(item['image_meta'][0]['width'])
+	if item.has_key('image_meta') and item['image_meta'].itervalues().next().has_key('width'):
+		width = int(item['image_meta'].itervalues().next()['width'])
 	else:
 		width = -1
 
-	if item.has_key('image_meta') and item['image_meta'][0].has_key('height'):
-		height = int(item['image_meta'][0]['height'])
+	if item.has_key('image_meta') and item['image_meta'].itervalues().next().has_key('height'):
+		height = int(item['image_meta'].itervalues().next()['height'])
 	else:
 		height = -1
 	
@@ -158,96 +231,6 @@ def oEmbed_API():
 		return render_template('oembed_xml.html', data = data), 200, {'Content-Type': 'text/xml'}
 	else:
 		return json.dumps(data), 200, {'Content-Type': 'application/json'}
-
-#@app.route('/oembed/<unique_id>')
-def oEmbed(unique_id):
-	item = g.db.get(unique_id)
-
-	if not item:
-		abort(404)
-
-	try:
-		item = json.loads(item)
-	except:
-		abort(500)
-	
-	if not item.has_key('title'):
-		item['title'] = ''
-
-	return render_template('oembed_img.html', data = item)
-
-
-#@app.route('/<unique_id>')
-def iFrame(unique_id):
-	item = g.db.get(unique_id)
-	
-	if not item:
-		abort(404)
-	
-	try:
-		item = json.loads(item)
-	except:
-		abort(500)
-	
-	if not item.has_key('title'):
-		item['title'] = ''
-	
-	if type(item['image_meta']) == list:
-		for i in item['image_meta']:
-			item['image_meta'] = json.dumps(i)
-			break
-		
-	return render_template('iframe_openseadragon_inline.html', data = item)
-
-
-#@app.route('/iiif/<unique_id>/manifest.json')
-def iiifMeta(unique_id):
-	item = g.db.get(unique_id)
-	
-	if not item:
-		abort(404)
-	
-	try:
-		item = json.loads(item)
-	except:
-		abort(500)
-	
-	if item.has_key('image_meta') and item['image_meta'][0].has_key('width'):
-		width = item['image_meta'][0]['width']
-	else:
-		width = 1
-
-	if item.has_key('image_meta') and item['image_meta'][0].has_key('height'):
-		height = item['image_meta'][0]['height']
-	else:
-		height = 1
-	
-	if item.has_key('title'):
-		title = item['title']
-	else:
-		title = ''
-	
-	fac = ManifestFactory()
-	fac.set_base_metadata_uri(app.config['SERVER_NAME'] + '/iiif')
-	fac.set_base_metadata_dir(os.path.abspath(os.path.dirname(__file__)))
-	fac.set_base_image_uri(app.config['IIIF_SERVER'])
-	fac.set_iiif_image_info(2.0, 2)
-	
-	mf = fac.manifest(ident=url_for('iiifMeta', unique_id=unique_id, _external=True), label=title)
-	
-	seq = mf.sequence(label='Item %s - sequence 1' % unique_id)
-
-	cvs = seq.canvas(ident='http://' + app.config['SERVER_NAME'] + '/canvas/c1.json', label='Item %s - canvas 1' % unique_id)
-	cvs.set_hw(height, width)
-	
-	anno = cvs.annotation()
-
-	img = anno.image(ident='/' + unique_id + '_0/full/full/0/native.jpg')
-	img.height = height
-	img.width = width
-	img.add_service(ident=app.config['IIIF_SERVER'] + '/' + unique_id, context='http://iiif.io/api/image/2/context.json')
-
-	return json.JSONEncoder().encode(mf.toJSON(top=True)), 200, {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'}
 
 
 #@app.route('/ingest', methods=['GET', 'POST'])

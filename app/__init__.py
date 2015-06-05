@@ -12,10 +12,9 @@ def app_factory(config):
 	redis.init_app(app)
 
 	app.route('/')(views.index)
-	app.route('/oembedprovider', methods=['GET'])(views.oEmbed_API)
-	app.route('/oembed/<unique_id>')(views.oEmbed)
 	app.route('/<unique_id>')(views.iFrame)
-	app.route('/iiif/<unique_id>/manifest.json')(views.iiifMeta)
+	app.route('/<unique_id>/manifest.json')(views.iiifMeta)
+	app.route('/oembed', methods=['GET'])(views.oEmbed)
 	app.route('/ingest', methods=['GET', 'POST'])(views.ingest)
 
 	app.before_request(views.before_request)
