@@ -10,91 +10,65 @@ import boto
 from filechunkio import FileChunkIO
 import requests
 
-from app.queue import queue_app
+from app.task_queue import task_queue
+from models import Item, Batch
 
 
-@queue_app.task
-def ingestQueue(batch_id):
-	db = redis.StrictRedis(host='redis', port=6379, db=0)
-	batch = db.get(batch_id)
-	
-	if batch:
-		try:
-			batch = json.loads(batch)
-		except:
-			return
+@task_queue.task
+def ingestQueue(batch_id, item_id, url, order):
+	try:
+		batch = Batch(batch_id)
+		item = Item(item_id)
+	except:
+		return
 		
-		os.environ['S3_USE_SIGV4'] = 'True'
-		s3 = boto.connect_s3(is_secure=False,host='s3.eu-central-1.amazonaws.com')
-		bucket = s3.get_bucket('storage.hawk.bucket')
-		del os.environ['S3_USE_SIGV4']
-		chunk_size = 52428800
+	os.environ['S3_USE_SIGV4'] = 'True'
+	s3 = boto.connect_s3(is_secure=False,host='s3.eu-central-1.amazonaws.com')
+	bucket = s3.get_bucket('storage.hawk.bucket')
+	chunk_size = 52428800
 		
-		item_count = 0
-		
-		for item in batch:
+	try:
+		urllib.urlretrieve (url, 'tmp/%s_%s.jpg' % (item_id, order))
+		subprocess.call(['convert', '-compress', 'none', 'tmp/%s_%s.jpg' % (item_id, order), 'tmp/%s_%s.tif' % (item_id, order)])
+		subprocess.call(['kdu_compress', '-i', 'tmp/%s_%s.tif' % (item_id, order), '-o', 'tmp/%s_%s.jp2' % (item_id, order), '-rate', '-,0.5', 'Clayers=2', 'Creversible=yes', 'Clevels=8', 'Cprecincts={256,256},{256,256},{128,128}', 'Corder=RPCL', 'ORGgen_plt=yes', 'ORGtparts=R', 'Cblk={64,64}'])
 
-			if len(item['images']) == 0:
-				continue
-			
-			old_item = db.get(item['id'])
-			
-			try:
-				old_item = json.loads(old_item)
-			except:
-				continue
+		source_path = 'tmp/%s_%s.jp2' % (item_id, order)
+		source_size = os.stat(source_path).st_size
+		chunk_count = int(math.ceil(source_size / float(chunk_size)))
+		mp = bucket.initiate_multipart_upload('jp2_bl/' + os.path.basename(source_path))
 				
-			
-			url_count = 0
-			
-			for url in item['images'].keys():
-				try:
-					urllib.urlretrieve (url, 'tmp/%s_%s.jpg' % (item['id'], url_count))
-					subprocess.call(['convert', '-compress', 'none', 'tmp/%s_%s.jpg' % (item['id'], url_count), 'tmp/%s_%s.tif' % (item['id'], url_count)])
-					subprocess.call(['kdu_compress', '-i', 'tmp/%s_%s.tif' % (item['id'], url_count), '-o', 'tmp/%s_%s.jp2' % (item['id'], url_count), '-rate', '-,0.5', 'Clayers=2', 'Creversible=yes', 'Clevels=8', 'Cprecincts={256,256},{256,256},{128,128}', 'Corder=RPCL', 'ORGgen_plt=yes', 'ORGtparts=R', 'Cblk={64,64}'])
-
-					source_path = 'tmp/%s_%s.jp2' % (item['id'], url_count)
-					source_size = os.stat(source_path).st_size
-					chunk_count = int(math.ceil(source_size / float(chunk_size)))
-					mp = bucket.initiate_multipart_upload('jp2_bl/' + os.path.basename(source_path))
-				
-					for i in range(chunk_count):
-						offset = chunk_size * i
-						bytes = min(chunk_size, source_size - offset)
+		for i in range(chunk_count):
+			offset = chunk_size * i
+			bytes = min(chunk_size, source_size - offset)
 					
-						with FileChunkIO(source_path, 'r', offset=offset, bytes=bytes) as fp:
-							mp.upload_part_from_file(fp, part_num=i + 1)
+			with FileChunkIO(source_path, 'r', offset=offset, bytes=bytes) as fp:
+				mp.upload_part_from_file(fp, part_num=i + 1)
 				
-					mp.complete_upload()
-					os.remove('tmp/%s_%s.jpg' % (item['id'], url_count))
-					os.remove('tmp/%s_%s.jp2' % (item['id'], url_count))
-					os.remove('tmp/%s_%s.tif' % (item['id'], url_count))
-					batch[item_count]['images'][url] = 'ok'
-					time.sleep(2)
-					r = requests.get('http://iiifhawk.klokantech.com/%s_%s/info.json' % (item['id'], url_count))
-					old_item['image_meta'][url] = json.dumps(r.json())
+		mp.complete_upload()
+		os.remove('tmp/%s_%s.jpg' % (item_id, order))
+		os.remove('tmp/%s_%s.jp2' % (item_id, order))
+		os.remove('tmp/%s_%s.tif' % (item_id, order))
+		batch.items[order]['images'][url] = 'ok'
+		time.sleep(2)
+		r = requests.get('http://iiifhawk.klokantech.com/%s_%s/info.json' % (item_id, order))
+		item.image_meta[url] = r.json()
+		item.save()
+		new_status = 'ok'
 				
-				except:
-					batch[item_count]['images'][url] = 'error'
-					continue
-				
-				url_count += 1
+	except:
+		new_status = 'error'
+
+	batch.items[order]['images'][url] = new_status
 			
-			db.set(item['id'], json.JSONEncoder().encode(old_item))
+	for status in batch.items[order]['images'].values():
+		if status == 'error':
+			new_status = 'error'
+			break
+		elif status == 'pending':
+			new_status = 'pending'
+			break
 			
-			new_status = 'ok'
-			
-			for status in item['images'].values():
-				if status == 'error':
-					new_status = 'error'
-					break
-				elif status == 'pending':
-					new_status = 'pending'
-					break
-			
-			batch[item_count]['status'] = new_status
-			item_count += 1
-		
-		db.set(batch_id, json.JSONEncoder().encode(batch))
+	batch.items[order]['status'] = new_status
+	batch.save()
 		
 	return

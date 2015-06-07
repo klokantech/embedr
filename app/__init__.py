@@ -1,15 +1,15 @@
 """Module which provides flask aplication factory"""
 
 from flask import Flask
+
 from app import views
-from flask.ext.redis import Redis
+from models import db
 
 
 def app_factory(config):
 	app = Flask(__name__)
 	app.config.from_pyfile(config)
-	redis = Redis()
-	redis.init_app(app)
+	db.init_app(app)
 
 	app.route('/')(views.index)
 	app.route('/<unique_id>')(views.iFrame)

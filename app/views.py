@@ -4,7 +4,6 @@ import sys
 import os
 import re
 from urlparse import urlparse
-import time
 
 from flask import request, render_template, abort, url_for, g
 import simplejson as json
@@ -12,6 +11,8 @@ from flask import current_app as app
 
 from iiif_manifest_factory import ManifestFactory
 from ingest import ingestQueue
+from models import Item, Batch
+from exceptions import NoItemInDb, ErrorItemImport
 
 
 item_url_regular = re.compile(r"""
@@ -37,53 +38,34 @@ def index():
 
 #@app.route('/<unique_id>')
 def iFrame(unique_id):
-	item = g.db.get(unique_id)
-	
-	if not item:
-		abort(404)
-	
 	try:
-		item = json.loads(item)
-	except:
-		abort(500)
-	
-	if not item.has_key('title'):
-		item['title'] = ''
-	
-	if type(item['image_meta']) == list:
-		for i in item['image_meta']:
-			item['image_meta'] = json.dumps(i)
-			break
-		
-	return render_template('iframe_openseadragon_inline.html', data = item)
+		item = Item(unique_id)
+	except NoItemInDb as err:
+		return err.message, 404
+	except ErrorItemImport as err:
+		return err.message, 500
+
+	return render_template('iframe_openseadragon_inline.html', item = item)
 
 
 #@app.route('/<unique_id>/manifest.json')
 def iiifMeta(unique_id):
-	item = g.db.get(unique_id)
-	
-	if not item:
-		abort(404)
-	
 	try:
-		item = json.loads(item)
-	except:
-		abort(500)
+		item = Item(unique_id)
+	except NoItemInDb as err:
+		return err.message, 404
+	except ErrorItemImport as err:
+		return err.message, 500
 
-	if item.has_key('image_meta') and item['image_meta'].itervalues().next().has_key('width'):
-		width = item['image_meta'].itervalues().next()['width']
+	if item.image_meta[item.url[0]].has_key('width'):
+		width = item.image_meta[item.url[0]]['width']
 	else:
 		width = 1
 
-	if item.has_key('image_meta') and item['image_meta'].itervalues().next().has_key('height'):
-		height = item['image_meta'].itervalues().next()['height']
+	if item.image_meta[item.url[0]].has_key('height'):
+		height = item.image_meta[item.url[0]]['height']
 	else:
 		height = 1
-	
-	if item.has_key('title'):
-		title = item['title']
-	else:
-		title = ''
 	
 	fac = ManifestFactory()
 	fac.set_base_metadata_uri(app.config['SERVER_NAME'])
@@ -91,7 +73,7 @@ def iiifMeta(unique_id):
 	fac.set_base_image_uri(app.config['IIIF_SERVER'])
 	fac.set_iiif_image_info(2.0, 2)
 	
-	mf = fac.manifest(ident=url_for('iiifMeta', unique_id=unique_id, _external=True), label=title)
+	mf = fac.manifest(ident=url_for('iiifMeta', unique_id=unique_id, _external=True), label=item.title)
 	
 	seq = mf.sequence(label='Item %s - sequence 1' % unique_id)
 
@@ -103,7 +85,7 @@ def iiifMeta(unique_id):
 	img = anno.image(ident='/' + unique_id + '_0/full/full/0/native.jpg')
 	img.height = height
 	img.width = width
-	img.add_service(ident=app.config['IIIF_SERVER'] + '/' + unique_id, context='http://iiif.io/api/image/2/context.json')
+	img.add_service(ident=app.config['IIIF_SERVER'] + '/' + unique_id + '_0', context='http://iiif.io/api/image/2/context.json')
 
 	return json.JSONEncoder().encode(mf.toJSON(top=True)), 200, {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'}
 
@@ -113,7 +95,7 @@ def oEmbed():
 	url = request.args.get('url', None)
 	
 	if url is None:
-		abort(404)
+		return 'No url parameter provided', 404
 	
 	format = request.args.get('format', None)
 	
@@ -121,32 +103,29 @@ def oEmbed():
 		format = 'json'
 	
 	if format not in ('json', 'xml'):
-		abort(501)
+		return 'The format parameter must be "json" or "xml" (or blank)', 501
 	
 	p_url = urlparse(url)
 	
 	if p_url.scheme != 'http':
-		abort(404)
+		return 'the http scheme must be used', 404
 	
 	if p_url.netloc != app.config['SERVER_NAME']:
-		abort(404)
+		return 'Only urls on the same server are allowed', 404
 	
 	test = item_url_regular.search(p_url.path)
 		
 	if test:
 		unique_id = test.group('unique_id')
 	else:
-		abort(404)
+		return 'Unsupported format of ID', 404
 	
-	item = g.db.get(unique_id)
-
-	if not item:
-		abort(404)
-
 	try:
-		item = json.loads(item)
-	except:
-		abort(500)
+		item = Item(unique_id)
+	except NoItemInDb as err:
+		return err.message, 404
+	except ErrorItemImport as err:
+		return err.message, 500
 
 	maxwidth = request.args.get('maxwidth', None)
 	maxheight = request.args.get('maxheight', None)
@@ -157,13 +136,13 @@ def oEmbed():
 	if maxheight is not None:
 		maxheight = int(maxheight)
 
-	if item.has_key('image_meta') and item['image_meta'].itervalues().next().has_key('width'):
-		width = int(item['image_meta'].itervalues().next()['width'])
+	if item.image_meta[item.url[0]].has_key('width'):
+		width = int(item.image_meta[item.url[0]]['width'])
 	else:
 		width = -1
 
-	if item.has_key('image_meta') and item['image_meta'].itervalues().next().has_key('height'):
-		height = int(item['image_meta'].itervalues().next()['height'])
+	if item.image_meta[item.url[0]].has_key('height'):
+		height = int(item.image_meta[item.url[0]]['height'])
 	else:
 		height = -1
 	
@@ -171,11 +150,6 @@ def oEmbed():
 		ratio = float(width) / float(height)
 	else:
 		ratio = 1
-	
-	if item.has_key('title'):
-		title = item['title']
-	else:
-		title = ''
 
 	if width != -1:
 		if maxwidth is not None and maxwidth < width:
@@ -222,8 +196,8 @@ def oEmbed():
 	data = {}
 	data[u'version'] = '1.0'
 	data[u'type'] = 'photo'
-	data[u'title'] = title
-	data[u'url'] = app.config['IIIF_SERVER'] + '/' + unique_id + '/full/%s/0/native.jpg' % size
+	data[u'title'] = item.title
+	data[u'url'] = app.config['IIIF_SERVER'] + '/' + unique_id + '_0/full/%s/0/native.jpg' % size
 	data[u'width'] = '%.0f' % width
 	data[u'height'] = '%.0f' % height
 
@@ -239,11 +213,13 @@ def ingest():
 		batch_id = request.args.get('batch_id', None)
 
 		if batch_id is not None:
-			batch_id = 'batch:%s' % batch_id
-			batch = g.db.get(batch_id)
+			try:
+				batch = Batch(batch_id)
+			except:
+				batch = None
 	
 			if batch:
-				return batch, 200, {'Content-Type': 'application/json'}
+				return json.JSONEncoder().encode(batch.items), 200, {'Content-Type': 'application/json'}
 		
 		abort(404)
 	else:
@@ -282,57 +258,64 @@ def ingest():
 				if not url_regular.match(url):
 					abort(404)
 		
-		batch_id = 'batch:%s' % time.time()
-		batch = []
+		batch = Batch()
 		
 		# processing
-		for item in data:
-			unique_id = item['id']
+		for item_data in data:
+			unique_id = item_data['id']
 			b = {'id': unique_id, 'images': {}}
 			
-			if item.has_key('status') and item['status'] == 'deleted':
+			if item_data.has_key('status') and item_data['status'] == 'deleted':
 				g.db.delete(unique_id)
 				b['status'] = 'deleted'
-				batch.append(b)
+				batch.items.append(b)
 				continue
 			
-			g.db.delete(unique_id)
-			old_item = g.db.get(unique_id)
+			try:
+				item = Item(unique_id, item_data)
+			except NoItemInDb, ErrorItemImport:
+				abort(500)
+						
+			try:
+				old_item = Item(unique_id)
+			except NoItemInDb, ErrorItemImport:
+				old_item = None
+			
+#			old_item = None #--------------------------
 			
 			# already stored item
 			if old_item:
-				try:
-					old_item = json.loads(old_item)
-				except:
-					abort(500)
-				
-				item['image_meta'] = old_item['image_meta']
+				item.image_meta = old_item.image_meta
 
-				for url in item['url']:
+				for url in item.url:
 					# any change in url
-					if url not in old_item['url']:
-						item['image_meta'][url] = {}
+					if url not in old_item.url:
+						item.image_meta[url] = {}
 						b['images'][url] = 'pending'
-				
-				for url in item['image_meta'].keys():
-					if url not in item['url']:
-						item['image_meta'].pop(url, None)
+
 			# new item
 			else:
-				item['image_meta'] = {}
+				item.image_meta = {}
 				
-				for url in item['url']:
+				for url in item.url:
 					b['images'][url] = 'pending'
+			
+			item.save()
 			
 			if b['images']:
 				b['status'] = 'pending'
 			else:
 				b['status'] = 'ok'
 			
-			batch.append(b)
-			g.db.set(unique_id, json.JSONEncoder().encode(item))
+			batch.items.append(b)
 			
-		g.db.set(batch_id, json.JSONEncoder().encode(batch))
-		ingestQueue.delay(batch_id)
+		batch.save()
 		
-	return json.JSONEncoder().encode({'batch_id': batch_id.lstrip('batch:')}), 200, {'Content-Type': 'application/json'}
+		for b_item in batch.items:
+			order = 0
+			
+			for url in b_item['images']:
+				ingestQueue.delay(batch.id, b_item['id'], url, order)
+				order += 1
+		
+	return json.JSONEncoder().encode({'batch_id': batch.id}), 200, {'Content-Type': 'application/json'}

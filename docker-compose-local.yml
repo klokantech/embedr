@@ -6,20 +6,11 @@ redis:
     - data:/data
   command: redis-server --appendonly yes
 
-nginx:
-  image: klokantech/nginx
-  ports:
-    - "80:80"
-  links:
-    - embedhawk
-  volumes:
-    - nginx/:/etc/nginx/conf.d/
-
 embedhawk:
   build: .
-  command: /usr/local/bin/supervisord -c /etc/supervisord/supervisord.conf
-  expose:
-    - "5000"
+  command: /usr/bin/python /usr/local/src/hawk/run_local.py
+  ports:
+    - "5000:5000"
   links:
     - redis
   volumes:
