@@ -4,6 +4,7 @@ import sys
 import os
 import re
 from urlparse import urlparse
+import math
 
 from flask import request, render_template, abort, url_for, g
 import simplejson as json
@@ -11,7 +12,7 @@ from flask import current_app as app
 
 from iiif_manifest_factory import ManifestFactory
 from ingest import ingestQueue
-from models import Item, Batch
+from models import Item, Batch, SubBatch
 from exceptions import NoItemInDb, ErrorItemImport
 
 
@@ -44,8 +45,33 @@ def iFrame(unique_id):
 		return err.message, 404
 	except ErrorItemImport as err:
 		return err.message, 500
-
-	return render_template('iframe_openseadragon_inline.html', item = item)
+	
+	tile_sources = []
+	
+	count = 0
+	
+	for url in item.url:
+		item.image_meta[url]['@context'] = 'http://iiif.io/api/image/2/context.json'
+		item.image_meta[url]['@id'] = app.config['IIIF_SERVER'] + '/' + unique_id + '_' + str(count)
+		item.image_meta[url]['protocol'] = 'http://iiif.io/api/image'
+		item.image_meta[url]['profile'] = ['http://iiif.io/api/image/2/level1.json', {'formats': ['jpg'], 'qualities': ['native', 'color', 'gray'], 'supports': ['regionByPct', 'sizeByForcedWh', 'sizeByWh', 'sizeAboveFull', 'rotationBy90s', 'mirroring', 'gray']}]
+		
+		if item.image_meta[url]['width'] > item.image_meta[url]['height']:
+			num_resolutions = int(item.image_meta[url]['height'] / 256)
+		else:
+			num_resolutions = int(item.image_meta[url]['width'] / 256)
+		
+		scaleFactors = [1]
+		
+		for i in range(1, num_resolutions):
+			scaleFactors.append(int(math.pow(2.0, i)))
+		
+		item.image_meta[url]['tiles'] = [{'width' : 256, 'height' : 256, 'scaleFactors': scaleFactors}]
+		
+		tile_sources.append(item.image_meta[url])
+		count += 1
+		
+	return render_template('iframe_openseadragon_inline.html', item = item, tile_sources = tile_sources)
 
 
 #@app.route('/<unique_id>/manifest.json')
@@ -67,6 +93,9 @@ def iiifMeta(unique_id):
 	else:
 		height = 1
 	
+	cvs_width = width
+	cvs_height = height
+	
 	fac = ManifestFactory()
 	fac.set_base_metadata_uri(app.config['SERVER_NAME'])
 	fac.set_base_metadata_dir(os.path.abspath(os.path.dirname(__file__)))
@@ -78,14 +107,27 @@ def iiifMeta(unique_id):
 	seq = mf.sequence(label='Item %s - sequence 1' % unique_id)
 
 	cvs = seq.canvas(ident='http://' + app.config['SERVER_NAME'] + '/canvas/c1.json', label='Item %s - canvas 1' % unique_id)
-	cvs.set_hw(height, width)
 	
 	anno = cvs.annotation()
+	
+	count = 0
+	
+	for url in item.url:
+		item.image_meta[url]['@context'] = 'http://iiif.io/api/image/2/context.json'
 
-	img = anno.image(ident='/' + unique_id + '_0/full/full/0/native.jpg')
-	img.height = height
-	img.width = width
-	img.add_service(ident=app.config['IIIF_SERVER'] + '/' + unique_id + '_0', context='http://iiif.io/api/image/2/context.json')
+		img = anno.image(ident='/' + unique_id + '_%s/full/full/0/native.jpg' % count)
+		img.height = item.image_meta[url]['height']
+		img.width = item.image_meta[url]['width']
+		img.add_service(ident=app.config['IIIF_SERVER'] + '/' + unique_id + '_%s' % count, context='http://iiif.io/api/image/2/context.json')
+		
+		if img.height > cvs_height:
+			cvs_height = img.height
+		if img.width > cvs_width:
+			cvs_width = img.width
+		
+		count += 1
+	
+	cvs.set_hw(cvs_height, cvs_width)
 
 	return json.JSONEncoder().encode(mf.toJSON(top=True)), 200, {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'}
 
@@ -213,6 +255,7 @@ def ingest():
 		batch_id = request.args.get('batch_id', None)
 
 		if batch_id is not None:
+		
 			try:
 				batch = Batch(batch_id)
 			except:
@@ -234,12 +277,17 @@ def ingest():
 		if type(data) is not list:
 			abort(404)
 		
+		item_ids = []
+		
 		# validation
 		for item in data:
 			if type(item) is not dict:
 				abort(404)
 
 			if not item.has_key('id'):
+				abort(404)
+			
+			if item['id'] in item_ids:
 				abort(404)
 					
 			if not id_regular.match(item['id']):
@@ -257,13 +305,16 @@ def ingest():
 			for url in item['url']:
 				if not url_regular.match(url):
 					abort(404)
+			
+			item_ids.append(item['id'])
 		
 		batch = Batch()
+		sub_batches_count = 0
 		
 		# processing
 		for item_data in data:
 			unique_id = item_data['id']
-			b = {'id': unique_id, 'images': {}}
+			b = {'id': unique_id}
 			
 			if item_data.has_key('status') and item_data['status'] == 'deleted':
 				g.db.delete(unique_id)
@@ -280,42 +331,48 @@ def ingest():
 				old_item = Item(unique_id)
 			except NoItemInDb, ErrorItemImport:
 				old_item = None
-			
-#			old_item = None #--------------------------
-			
+					
 			# already stored item
 			if old_item:
 				item.image_meta = old_item.image_meta
+				order = 0
 
 				for url in item.url:
 					# any change in url
 					if url not in old_item.url:
 						item.image_meta[url] = {}
-						b['images'][url] = 'pending'
-
+						sub_batches_count += 1
+						data = {'url': url, 'item_id': item.id, 'order': order}
+						sub_batch = SubBatch(sub_batches_count, batch.id, data)
+						batch.sub_batches_ids.append(sub_batch.id)
+					
+					order += 1
+						
 			# new item
 			else:
 				item.image_meta = {}
+				order = 0
 				
 				for url in item.url:
-					b['images'][url] = 'pending'
+					sub_batches_count += 1
+					data = {'url': url, 'item_id': item.id, 'order': order}
+					sub_batch = SubBatch(sub_batches_count, batch.id, data)
+					batch.sub_batches_ids.append(sub_batch.id)
+					order += 1
 			
 			item.save()
 			
-			if b['images']:
+			if order > 0:
 				b['status'] = 'pending'
 			else:
 				b['status'] = 'ok'
 			
 			batch.items.append(b)
-			
+
+		batch.sub_batches_count = sub_batches_count
 		batch.save()
 		
-		for b_item in batch.items:
-			order = 0
-			
-			for url in b_item['images']:
-				ingestQueue.delay(batch.id, b_item['id'], url, order)
-				order += 1
+		for sub_batch_id in batch.sub_batches_ids:
+			ingestQueue.delay(batch.id, sub_batch_id)
 		
 	return json.JSONEncoder().encode({'batch_id': batch.id}), 200, {'Content-Type': 'application/json'}

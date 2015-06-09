@@ -26,7 +26,8 @@
       OpenSeadragon({
         id: 'map',
         showNavigationControl: false,
-        tileSources: {{ item.image_meta[item.url[0]] | tojson | safe }}
+        tileSources: {{ tile_sources | tojson | safe }},
+        sequenceMode: true
       });
     </script>
   </body>
