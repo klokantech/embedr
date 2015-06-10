@@ -56,10 +56,7 @@ def iFrame(unique_id):
 		item.image_meta[url]['protocol'] = 'http://iiif.io/api/image'
 		item.image_meta[url]['profile'] = ['http://iiif.io/api/image/2/level1.json', {'formats': ['jpg'], 'qualities': ['native', 'color', 'gray'], 'supports': ['regionByPct', 'sizeByForcedWh', 'sizeByWh', 'sizeAboveFull', 'rotationBy90s', 'mirroring', 'gray']}]
 		
-		if item.image_meta[url]['width'] > item.image_meta[url]['height']:
-			num_resolutions = math.log(item.image_meta[url]['width'] / 256.0, 2)
-		else:
-			num_resolutions = math.log(item.image_meta[url]['height'] / 256.0, 2)
+		num_resolutions = math.log(max(item.image_meta[url]['width'], item.image_meta[url]['height']) / 256.0, 2)
 		
 		num_resolutions = int(math.ceil(num_resolutions))
 		
