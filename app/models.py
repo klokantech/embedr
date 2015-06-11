@@ -14,7 +14,7 @@ class Item():
 		self.source = ''
 		self.institution = ''
 		self.institution_link = ''
-		self.licence = ''
+		self.license = ''
 		self.description = ''
 		self.url = []
 		self.image_meta = {}
@@ -56,8 +56,8 @@ class Item():
 			self.institution = data['institution']
 		if data.has_key('institution_link'):
 			self.institution_link = data['institution_link']
-		if data.has_key('licence'):
-			self.licence = data['licence']
+		if data.has_key('license'):
+			self.license = data['license']
 		if data.has_key('description'):
 			self.description = data['description']
 		if data.has_key('image_meta'):

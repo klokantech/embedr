@@ -81,19 +81,6 @@ def iiifMeta(unique_id):
 		return err.message, 404
 	except ErrorItemImport as err:
 		return err.message, 500
-
-	if item.image_meta[item.url[0]].has_key('width'):
-		width = item.image_meta[item.url[0]]['width']
-	else:
-		width = 1
-
-	if item.image_meta[item.url[0]].has_key('height'):
-		height = item.image_meta[item.url[0]]['height']
-	else:
-		height = 1
-	
-	cvs_width = width
-	cvs_height = height
 	
 	fac = ManifestFactory()
 	fac.set_base_metadata_uri(app.config['SERVER_NAME'])
@@ -102,31 +89,40 @@ def iiifMeta(unique_id):
 	fac.set_iiif_image_info(2.0, 2)
 	
 	mf = fac.manifest(ident=url_for('iiifMeta', unique_id=unique_id, _external=True), label=item.title)
+	mf.description = item.description
+	mf.license = item.license
 	
-	seq = mf.sequence(label='Item %s - sequence 1' % unique_id)
+	mf.set_metadata({"label":"Author", "value":item.creator})
+	mf.set_metadata({"label":"Source", "value":item.source})
+	mf.set_metadata({"label":"Institution", "value":item.institution})
+	mf.set_metadata({"label":"Institution link", "value":item.institution_link})
+	
+	seq = mf.sequence(ident='http://%s/sequence/s.json' % app.config['SERVER_NAME'], label='Item %s - sequence 1' % unique_id)
 
-	cvs = seq.canvas(ident='http://' + app.config['SERVER_NAME'] + '/canvas/c1.json', label='Item %s - canvas 1' % unique_id)
-	
-	anno = cvs.annotation()
-	
 	count = 0
 	
 	for url in item.url:
-		item.image_meta[url]['@context'] = 'http://iiif.io/api/image/2/context.json'
+		if item.image_meta[url].has_key('width'):
+			width = item.image_meta[url]['width']
+		else:
+			width = 1
 
-		img = anno.image(ident='/' + unique_id + '_%s/full/full/0/native.jpg' % count)
-		img.height = item.image_meta[url]['height']
-		img.width = item.image_meta[url]['width']
-		img.add_service(ident=app.config['IIIF_SERVER'] + '/' + unique_id + '_%s' % count, context='http://iiif.io/api/image/2/context.json')
-		
-		if img.height > cvs_height:
-			cvs_height = img.height
-		if img.width > cvs_width:
-			cvs_width = img.width
+		if item.image_meta[url].has_key('height'):
+			height = item.image_meta[url]['height']
+		else:
+			height = 1
+	
+		cvs = seq.canvas(ident='http://%s/canvas/c%s.json' % (app.config['SERVER_NAME'], count), label='Item %s - image %s' % (unique_id, count))
+		cvs.set_hw(height, width)
+	
+		anno = cvs.annotation()
+
+		img = anno.image(ident='/%s_%s/full/full/0/native.jpg' % (unique_id, count))
+		img.width = width
+		img.height = height
+		img.add_service(ident='%s/%s_%s' % (app.config['IIIF_SERVER'], unique_id, count), context='http://iiif.io/api/image/2/context.json', profile='http://iiif.io/api/image/2/profiles/level2.json')
 		
 		count += 1
-	
-	cvs.set_hw(cvs_height, cvs_width)
 
 	return json.JSONEncoder().encode(mf.toJSON(top=True)), 200, {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'}
 
