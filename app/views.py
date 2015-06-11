@@ -4,7 +4,6 @@ import sys
 import os
 import re
 from urlparse import urlparse
-import math
 
 from flask import request, render_template, abort, url_for, g
 import simplejson as json
@@ -14,11 +13,14 @@ from iiif_manifest_factory import ManifestFactory
 from ingest import ingestQueue
 from models import Item, Batch, SubBatch
 from exceptions import NoItemInDb, ErrorItemImport
+from helper import prepareTileSources
 
 
 item_url_regular = re.compile(r"""
 	^/
-	(?P<unique_id>.+)
+	(?P<unique_id>([-_.:~a-zA-Z0-9]){1,32})
+	/?
+	(?P<order>\d*)
 	""", re.VERBOSE)
 
 id_regular = re.compile(r"""
@@ -38,7 +40,19 @@ def index():
 
 
 #@app.route('/<unique_id>')
-def iFrame(unique_id):
+#@app.route('/<unique_id>/<order>')
+def iFrame(unique_id, order=None):
+	if order is not None:
+		try:
+			order = int(order)
+			
+			if order < 0:
+				return 'Wrong item sequence', 404
+		except:
+			return 'Wrong item sequence', 404
+	else:
+		order = -1
+	
 	try:
 		item = Item(unique_id)
 	except NoItemInDb as err:
@@ -49,31 +63,24 @@ def iFrame(unique_id):
 	if item.lock is True:
 		return 'The item is being ingested', 404
 	
+	if order >= len(item.url):
+		return 'Wrong item sequence', 404
+	
 	tile_sources = []
 	
-	count = 0
-	
-	for url in item.url:
-		item.image_meta[url]['@context'] = 'http://iiif.io/api/image/2/context.json'
-		item.image_meta[url]['@id'] = app.config['IIIF_SERVER'] + '/' + unique_id + '_' + str(count)
-		item.image_meta[url]['protocol'] = 'http://iiif.io/api/image'
-		item.image_meta[url]['profile'] = ['http://iiif.io/api/image/2/level1.json', {'formats': ['jpg'], 'qualities': ['native', 'color', 'gray'], 'supports': ['regionByPct', 'sizeByForcedWh', 'sizeByWh', 'sizeAboveFull', 'rotationBy90s', 'mirroring', 'gray']}]
+	if order == -1:
+		count = 0
 		
-		num_resolutions = math.log(max(item.image_meta[url]['width'], item.image_meta[url]['height']) / 256.0, 2)
+		for url in item.url:
+			tile_sources.append(prepareTileSources(item, url, count))
+			count += 1
 		
-		num_resolutions = int(math.ceil(num_resolutions))
+		order = 0
+	else:
+		url = item.url[order]
+		tile_sources.append(prepareTileSources(item, url, order))
 		
-		scaleFactors = [1]
-		
-		for i in range(1, num_resolutions + 1):
-			scaleFactors.append(int(math.pow(2.0, i)))
-		
-		item.image_meta[url]['tiles'] = [{'width' : 256, 'height' : 256, 'scaleFactors': scaleFactors}]
-		
-		tile_sources.append(item.image_meta[url])
-		count += 1
-		
-	return render_template('iframe_openseadragon_inline.html', item = item, tile_sources = tile_sources)
+	return render_template('iframe_openseadragon_inline.html', item = item, tile_sources = tile_sources, order = order)
 
 
 #@app.route('/<unique_id>/manifest.json')
@@ -123,10 +130,15 @@ def iiifMeta(unique_id):
 	
 		anno = cvs.annotation()
 
-		img = anno.image(ident='/%s_%s/full/full/0/native.jpg' % (unique_id, count))
+		if count > 0:
+			img = anno.image(ident='/%s/%s/full/full/0/native.jpg' % (unique_id, count))
+			img.add_service(ident='%s/%s/%s' % (app.config['IIIF_SERVER'], unique_id, count), context='http://iiif.io/api/image/2/context.json', profile='http://iiif.io/api/image/2/profiles/level2.json')
+		else:
+			img = anno.image(ident='/%s/full/full/0/native.jpg' % unique_id)
+			img.add_service(ident='%s/%s' % (app.config['IIIF_SERVER'], unique_id), context='http://iiif.io/api/image/2/context.json', profile='http://iiif.io/api/image/2/profiles/level2.json')
+		
 		img.width = width
 		img.height = height
-		img.add_service(ident='%s/%s_%s' % (app.config['IIIF_SERVER'], unique_id, count), context='http://iiif.io/api/image/2/context.json', profile='http://iiif.io/api/image/2/profiles/level2.json')
 		
 		count += 1
 
@@ -160,9 +172,15 @@ def oEmbed():
 		
 	if test:
 		unique_id = test.group('unique_id')
+		order = test.group('order')
+		
+		if order == '':
+			order = 0
+		else:
+			order = int(order)
 	else:
 		return 'Unsupported format of ID', 404
-	
+
 	try:
 		item = Item(unique_id)
 	except NoItemInDb as err:
@@ -172,6 +190,9 @@ def oEmbed():
 	
 	if item.lock is True:
 		return 'The item is being ingested', 404
+		
+	if order >= len(item.url):
+		return 'Wrong item sequence', 404
 
 	maxwidth = request.args.get('maxwidth', None)
 	maxheight = request.args.get('maxheight', None)
@@ -182,13 +203,13 @@ def oEmbed():
 	if maxheight is not None:
 		maxheight = int(maxheight)
 
-	if item.image_meta[item.url[0]].has_key('width'):
-		width = int(item.image_meta[item.url[0]]['width'])
+	if item.image_meta[item.url[order]].has_key('width'):
+		width = int(item.image_meta[item.url[order]]['width'])
 	else:
 		width = -1
 
-	if item.image_meta[item.url[0]].has_key('height'):
-		height = int(item.image_meta[item.url[0]]['height'])
+	if item.image_meta[item.url[order]].has_key('height'):
+		height = int(item.image_meta[item.url[order]]['height'])
 	else:
 		height = -1
 	
@@ -243,7 +264,12 @@ def oEmbed():
 	data[u'version'] = '1.0'
 	data[u'type'] = 'photo'
 	data[u'title'] = item.title
-	data[u'url'] = app.config['IIIF_SERVER'] + '/' + unique_id + '_0/full/%s/0/native.jpg' % size
+	
+	if order > 0:
+		data[u'url'] = '%s/%s/%s/full/%s/0/native.jpg' % (app.config['IIIF_SERVER'], unique_id, order, size)
+	else:
+		data[u'url'] = '%s/%s/full/%s/0/native.jpg' % (app.config['IIIF_SERVER'], unique_id, size)
+		
 	data[u'width'] = '%.0f' % width
 	data[u'height'] = '%.0f' % height
 
@@ -319,6 +345,7 @@ def ingest():
 		for item_data in data:
 			unique_id = item_data['id']
 			b = {'id': unique_id}
+			num_url_ingested = 0
 			
 			if item_data.has_key('status') and item_data['status'] == 'deleted':
 				g.db.delete(unique_id)
@@ -350,6 +377,7 @@ def ingest():
 						data = {'url': url, 'item_id': item.id, 'order': order}
 						sub_batch = SubBatch(sub_batches_count, batch.id, data)
 						batch.sub_batches_ids.append(sub_batch.id)
+						num_url_ingested += 1
 					
 					order += 1
 						
@@ -363,14 +391,16 @@ def ingest():
 					data = {'url': url, 'item_id': item.id, 'order': order}
 					sub_batch = SubBatch(sub_batches_count, batch.id, data)
 					batch.sub_batches_ids.append(sub_batch.id)
+					num_url_ingested += 1
 					order += 1
 			
-			item.save()
-			
-			if order > 0:
+			if num_url_ingested > 0:
 				b['status'] = 'pending'
 			else:
 				b['status'] = 'ok'
+				item.lock = False
+			
+			item.save()
 			
 			batch.items.append(b)
 

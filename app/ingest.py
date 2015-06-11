@@ -35,9 +35,16 @@ def ingestQueue(batch_id, sub_batch_id):
 	s3 = boto.connect_s3(is_secure=False,host='s3.eu-central-1.amazonaws.com')
 	bucket = s3.get_bucket('storage.hawk.bucket')
 	chunk_size = 52428800
+	default_folder = 'jp2_bl/'
 		
 	try:
-		filename = '/tmp/%s_%s' % (sub_batch.item_id, sub_batch.order)
+		if sub_batch.order > 0:
+			filename = '/tmp/%s_%s' % (sub_batch.item_id, sub_batch.order)
+			destination = '%s/%s.jp2' % (sub_batch.item_id, sub_batch.order)
+		else:
+			filename = '/tmp/%s' % sub_batch.item_id
+			destination = '%s.jp2' % sub_batch.item_id
+			
 		urllib.urlretrieve (sub_batch.url, filename)
 		
 		if subprocess.check_output(['identify', '-format', '%m', filename]) != 'TIFF':
@@ -51,7 +58,7 @@ def ingestQueue(batch_id, sub_batch_id):
 		source_path = '%s.jp2' % filename
 		source_size = os.stat(source_path).st_size
 		chunk_count = int(math.ceil(source_size / float(chunk_size)))
-		mp = bucket.initiate_multipart_upload('jp2_bl/' + os.path.basename(source_path))
+		mp = bucket.initiate_multipart_upload(default_folder + destination)
 				
 		for i in range(chunk_count):
 			offset = chunk_size * i

@@ -13,6 +13,7 @@ def app_factory(config):
 
 	app.route('/')(views.index)
 	app.route('/<unique_id>')(views.iFrame)
+	app.route('/<unique_id>/<order>')(views.iFrame)
 	app.route('/<unique_id>/manifest.json')(views.iiifMeta)
 	app.route('/oembed', methods=['GET'])(views.oEmbed)
 	app.route('/ingest', methods=['GET', 'POST'])(views.ingest)
