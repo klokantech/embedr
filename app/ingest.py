@@ -37,11 +37,18 @@ def ingestQueue(batch_id, sub_batch_id):
 	chunk_size = 52428800
 		
 	try:
-		urllib.urlretrieve (sub_batch.url, '/tmp/%s_%s.jpg' % (sub_batch.item_id, sub_batch.order))
-		subprocess.call(['convert', '-compress', 'none', '/tmp/%s_%s.jpg' % (sub_batch.item_id, sub_batch.order), '/tmp/%s_%s.tif' % (sub_batch.item_id, sub_batch.order)])
-		subprocess.call(['kdu_compress', '-i', '/tmp/%s_%s.tif' % (sub_batch.item_id, sub_batch.order), '-o', '/tmp/%s_%s.jp2' % (sub_batch.item_id, sub_batch.order), '-rate', '-,0.5', 'Clayers=2', 'Creversible=yes', 'Clevels=8', 'Cprecincts={256,256},{256,256},{128,128}', 'Corder=RPCL', 'ORGgen_plt=yes', 'ORGtparts=R', 'Cblk={64,64}'])
+		filename = '/tmp/%s_%s' % (sub_batch.item_id, sub_batch.order)
+		urllib.urlretrieve (sub_batch.url, filename)
+		
+		if subprocess.check_output(['identify', '-format', '%m', filename]) != 'TIFF':
+			subprocess.call(['convert', '-compress', 'none', filename, '%s.tif' % filename])
+			os.remove('%s' % filename)
+		else:
+			os.rename('%s' % filename, '%s.tif' % filename)
+		
+		subprocess.call(['kdu_compress', '-i', '%s.tif' % filename, '-o', '%s.jp2' % filename, '-rate', '-,0.5', 'Clayers=2', 'Creversible=yes', 'Clevels=8', 'Cprecincts={256,256},{256,256},{128,128}', 'Corder=RPCL', 'ORGgen_plt=yes', 'ORGtparts=R', 'Cblk={64,64}'])
 
-		source_path = '/tmp/%s_%s.jp2' % (sub_batch.item_id, sub_batch.order)
+		source_path = '%s.jp2' % filename
 		source_size = os.stat(source_path).st_size
 		chunk_count = int(math.ceil(source_size / float(chunk_size)))
 		mp = bucket.initiate_multipart_upload('jp2_bl/' + os.path.basename(source_path))
@@ -55,16 +62,15 @@ def ingestQueue(batch_id, sub_batch_id):
 				
 		mp.complete_upload()
 		
-		test = identify_output_regular.search(subprocess.check_output(['identify', '-format', '{"width": %w, "height": %h}', '/tmp/%s_%s.jpg' % (sub_batch.item_id, sub_batch.order)]))
+		test = identify_output_regular.search(subprocess.check_output(['identify', '-format', '{"width": %w, "height": %h}', '%s.tif' % filename]))
 		
 		if test:
 			sub_batch.image_meta = json.loads(test.group('size_json'))
 		else:
 			raise Exception
 		
-		os.remove('/tmp/%s_%s.jpg' % (sub_batch.item_id, sub_batch.order))
-		os.remove('/tmp/%s_%s.jp2' % (sub_batch.item_id, sub_batch.order))
-		os.remove('/tmp/%s_%s.tif' % (sub_batch.item_id, sub_batch.order))
+		os.remove('%s.jp2' % filename)
+		os.remove('%s.tif' % filename)
 
 		sub_batch.status = 'ok'
 		sub_batch.save()
@@ -115,6 +121,7 @@ def finalizeIngest(batch):
 		
 		batch.items[order]['status'] = item_status
 		
+		item.lock = False
 		item.save()
 		order += 1
 			

@@ -18,6 +18,7 @@ class Item():
 		self.description = ''
 		self.url = []
 		self.image_meta = {}
+		self.lock = False
 		
 		if data:
 			try:
@@ -25,7 +26,7 @@ class Item():
 			except:
 				raise ErrorItemImport('There is an error in the item`s model representation %s' % data)
 		else:
-			data = db.get(id)
+			data = db.get('item@id:%s' % id)
 			
 			if not data:
 				raise NoItemInDb('No item with specified id stored in db')
@@ -35,7 +36,7 @@ class Item():
 				except:
 					raise ErrorItemImport('There is an error in the item`s model representation %s' % data)	
 					
-		if data.has_key('id') and data.has_key('url'):
+		if data.has_key('url'):
 			self.url = data['url']
 			
 			if type(self.url) != list:
@@ -62,10 +63,20 @@ class Item():
 			self.description = data['description']
 		if data.has_key('image_meta'):
 			self.image_meta = data['image_meta']
+		if data.has_key('lock'):
+			if data['lock'] == 'True':
+				self.lock = True
+			else:
+				self.lock = False
 
 
 	def save(self):
-		db.set(self.id, json.dumps(self.__dict__))
+		if self.lock is True:
+			lock = 'True'
+		else:
+			lock = 'False'
+		
+		db.set('item@id:%s' % self.id, json.dumps({'url': self.url, 'title': self.title, 'creator': self.creator, 'institution': self.institution, 'institution_link': self.institution_link, 'license': self.license, 'description': self.description, 'image_meta': self.image_meta, 'lock': lock}))
 		
 		
 class Batch():
@@ -166,4 +177,4 @@ class SubBatch():
 
 	
 	def save(self):
-		db.set('batch@id:%s:sub_batch:id:%s' % (self.batch_id, self.id), json.dumps(self.__dict__))
+		db.set('batch@id:%s:sub_batch:id:%s' % (self.batch_id, self.id), json.dumps({'status': self.status, 'url': self.url, 'order': self.order, 'item_id': self.item_id, 'image_meta': self.image_meta, 'attempts': self.attempts}))

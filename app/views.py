@@ -46,6 +46,9 @@ def iFrame(unique_id):
 	except ErrorItemImport as err:
 		return err.message, 500
 	
+	if item.lock is True:
+		return 'The item is being ingested', 404
+	
 	tile_sources = []
 	
 	count = 0
@@ -81,6 +84,9 @@ def iiifMeta(unique_id):
 		return err.message, 404
 	except ErrorItemImport as err:
 		return err.message, 500
+	
+	if item.lock is True:
+		return 'The item is being ingested', 404
 	
 	fac = ManifestFactory()
 	fac.set_base_metadata_uri(app.config['SERVER_NAME'])
@@ -163,6 +169,9 @@ def oEmbed():
 		return err.message, 404
 	except ErrorItemImport as err:
 		return err.message, 500
+	
+	if item.lock is True:
+		return 'The item is being ingested', 404
 
 	maxwidth = request.args.get('maxwidth', None)
 	maxheight = request.args.get('maxheight', None)
@@ -319,6 +328,7 @@ def ingest():
 			
 			try:
 				item = Item(unique_id, item_data)
+				item.lock = True
 			except NoItemInDb, ErrorItemImport:
 				abort(500)
 						
