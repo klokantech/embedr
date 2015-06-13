@@ -3,14 +3,10 @@ import math
 from flask import current_app as app
 
 
-def prepareTileSources(item, url, order):
+def prepareTileSources(item, url):
+	test=item.image_meta[url]['filename']
 	item.image_meta[url]['@context'] = 'http://iiif.io/api/image/2/context.json'
-		
-	if order > 0:
-		item.image_meta[url]['@id'] = '%s/%s/%s' % (app.config['IIIF_SERVER'], item.id, order)
-	else:
-		item.image_meta[url]['@id'] = '%s/%s' % (app.config['IIIF_SERVER'], item.id)
-		
+	item.image_meta[url]['@id'] = '%s/%s' % (app.config['IIIF_SERVER'], trimFileExtension(item.image_meta[url]['filename']))
 	item.image_meta[url]['protocol'] = 'http://iiif.io/api/image'
 	item.image_meta[url]['profile'] = ['http://iiif.io/api/image/2/level1.json', {'formats': ['jpg'], 'qualities': ['native', 'color', 'gray'], 'supports': ['regionByPct', 'sizeByForcedWh', 'sizeByWh', 'sizeAboveFull', 'rotationBy90s', 'mirroring', 'gray']}]
 		
@@ -26,3 +22,8 @@ def prepareTileSources(item, url, order):
 	item.image_meta[url]['tiles'] = [{'width' : 256, 'height' : 256, 'scaleFactors': scaleFactors}]
 	
 	return item.image_meta[url]
+	
+
+def trimFileExtension(filename):
+	"""Trims '.jp2' from filename"""
+	return filename[:-4]

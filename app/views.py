@@ -13,7 +13,7 @@ from iiif_manifest_factory import ManifestFactory
 from ingest import ingestQueue
 from models import Item, Batch, SubBatch
 from exceptions import NoItemInDb, ErrorItemImport
-from helper import prepareTileSources
+from helper import prepareTileSources, trimFileExtension
 
 
 item_url_regular = re.compile(r"""
@@ -69,16 +69,13 @@ def iFrame(unique_id, order=None):
 	tile_sources = []
 	
 	if order == -1:
-		count = 0
-		
 		for url in item.url:
-			tile_sources.append(prepareTileSources(item, url, count))
-			count += 1
+			tile_sources.append(prepareTileSources(item, url))
 		
 		order = 0
 	else:
 		url = item.url[order]
-		tile_sources.append(prepareTileSources(item, url, order))
+		tile_sources.append(prepareTileSources(item, url))
 		
 	return render_template('iframe_openseadragon_inline.html', item = item, tile_sources = tile_sources, order = order)
 
@@ -130,12 +127,8 @@ def iiifMeta(unique_id):
 	
 		anno = cvs.annotation()
 
-		if count > 0:
-			img = anno.image(ident='/%s/%s/full/full/0/native.jpg' % (unique_id, count))
-			img.add_service(ident='%s/%s/%s' % (app.config['IIIF_SERVER'], unique_id, count), context='http://iiif.io/api/image/2/context.json', profile='http://iiif.io/api/image/2/profiles/level2.json')
-		else:
-			img = anno.image(ident='/%s/full/full/0/native.jpg' % unique_id)
-			img.add_service(ident='%s/%s' % (app.config['IIIF_SERVER'], unique_id), context='http://iiif.io/api/image/2/context.json', profile='http://iiif.io/api/image/2/profiles/level2.json')
+		img = anno.image(ident='/%s/full/full/0/native.jpg' % (trimFileExtension(item.image_meta[url]['filename'])))
+		img.add_service(ident='%s/%s' % (app.config['IIIF_SERVER'], trimFileExtension(item.image_meta[url]['filename'])), context='http://iiif.io/api/image/2/context.json', profile='http://iiif.io/api/image/2/profiles/level2.json')
 		
 		img.width = width
 		img.height = height
@@ -264,12 +257,7 @@ def oEmbed():
 	data[u'version'] = '1.0'
 	data[u'type'] = 'photo'
 	data[u'title'] = item.title
-	
-	if order > 0:
-		data[u'url'] = '%s/%s/%s/full/%s/0/native.jpg' % (app.config['IIIF_SERVER'], unique_id, order, size)
-	else:
-		data[u'url'] = '%s/%s/full/%s/0/native.jpg' % (app.config['IIIF_SERVER'], unique_id, size)
-		
+	data[u'url'] = '%s/%s/full/%s/0/native.jpg' % (app.config['IIIF_SERVER'], trimFileExtension(item.image_meta[item.url[order]]['filename']), size)
 	data[u'width'] = '%.0f' % width
 	data[u'height'] = '%.0f' % height
 
@@ -345,14 +333,30 @@ def ingest():
 		for item_data in data:
 			unique_id = item_data['id']
 			b = {'id': unique_id}
-			num_url_ingested = 0
+			item_url_ingested_count = 0
 			
+			# delete a item
 			if item_data.has_key('status') and item_data['status'] == 'deleted':
-				g.db.delete(unique_id)
+				try:
+					item = Item(unique_id)
+					item.lock = True
+					item.save()
+					
+					for url in item.url:
+						data = {'url': url, 'item_id': item.id, 'type': 'del'}
+						sub_batch = SubBatch(sub_batches_count, batch.id, data)
+						batch.sub_batches_ids.append(sub_batch.id)
+						sub_batches_count += 1
+						
+				except NoItemInDb, ErrorItemImport:
+					pass
+					
 				b['status'] = 'deleted'
+				
 				batch.items.append(b)
 				continue
 			
+			# update or create a new item
 			try:
 				item = Item(unique_id, item_data)
 				item.lock = True
@@ -368,18 +372,30 @@ def ingest():
 			if old_item:
 				item.image_meta = old_item.image_meta
 				order = 0
+				
+				for url in item.image_meta.keys():
+					order = max(order, int(item.image_meta[url]['order']))				
 
 				for url in item.url:
-					# any change in url
+					# some new url
 					if url not in old_item.url:
+						order += 1
 						item.image_meta[url] = {}
-						sub_batches_count += 1
 						data = {'url': url, 'item_id': item.id, 'order': order}
 						sub_batch = SubBatch(sub_batches_count, batch.id, data)
 						batch.sub_batches_ids.append(sub_batch.id)
-						num_url_ingested += 1
-					
-					order += 1
+						item_url_ingested_count += 1
+						sub_batches_count += 1
+				
+				for url in old_item.url:
+					# some old url to be deleted
+					if url not in item.url:
+						data = {'url': url, 'item_id': item.id, 'type': 'del'}
+						sub_batch = SubBatch(sub_batches_count, batch.id, data)
+						batch.sub_batches_ids.append(sub_batch.id)
+						item_url_ingested_count += 1
+						sub_batches_count += 1
+
 						
 			# new item
 			else:
@@ -387,14 +403,14 @@ def ingest():
 				order = 0
 				
 				for url in item.url:
-					sub_batches_count += 1
 					data = {'url': url, 'item_id': item.id, 'order': order}
 					sub_batch = SubBatch(sub_batches_count, batch.id, data)
 					batch.sub_batches_ids.append(sub_batch.id)
-					num_url_ingested += 1
+					item_url_ingested_count += 1
+					sub_batches_count += 1
 					order += 1
 			
-			if num_url_ingested > 0:
+			if item_url_ingested_count > 0:
 				b['status'] = 'pending'
 			else:
 				b['status'] = 'ok'

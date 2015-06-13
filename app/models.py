@@ -78,6 +78,10 @@ class Item():
 		
 		db.set('item@id:%s' % self.id, json.dumps({'url': self.url, 'title': self.title, 'creator': self.creator, 'institution': self.institution, 'institution_link': self.institution_link, 'license': self.license, 'description': self.description, 'image_meta': self.image_meta, 'lock': lock}))
 		
+	
+	def delete(self):
+		db.delete('item@id:%s' % self.id)
+		
 		
 class Batch():
 	def __init__(self, id=None):
@@ -143,6 +147,7 @@ class SubBatch():
 		self.item_id = ''
 		self.image_meta = ''
 		self.attempts = 0
+		self.type = 'add'
 		
 		safe = True
 		
@@ -171,10 +176,12 @@ class SubBatch():
 			self.image_meta = data['image_meta']
 		if data.has_key('attempts'):
 			self.attempts = data['attempts']
+		if data.has_key('type'):
+			self.type = data['type']
 		
 		if safe:
 			self.save()
 
 	
 	def save(self):
-		db.set('batch@id:%s:sub_batch:id:%s' % (self.batch_id, self.id), json.dumps({'status': self.status, 'url': self.url, 'order': self.order, 'item_id': self.item_id, 'image_meta': self.image_meta, 'attempts': self.attempts}))
+		db.set('batch@id:%s:sub_batch:id:%s' % (self.batch_id, self.id), json.dumps({'status': self.status, 'url': self.url, 'order': self.order, 'item_id': self.item_id, 'image_meta': self.image_meta, 'attempts': self.attempts, 'type': self.type}))

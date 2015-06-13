@@ -36,51 +36,64 @@ def ingestQueue(batch_id, sub_batch_id):
 	bucket = s3.get_bucket('storage.hawk.bucket')
 	chunk_size = 52428800
 	default_folder = 'jp2_bl/'
-		
+	
 	try:
-		if sub_batch.order > 0:
-			filename = '/tmp/%s_%s' % (sub_batch.item_id, sub_batch.order)
-			destination = '%s/%s.jp2' % (sub_batch.item_id, sub_batch.order)
-		else:
-			filename = '/tmp/%s' % sub_batch.item_id
-			destination = '%s.jp2' % sub_batch.item_id
+		if sub_batch.type == 'del':
+			item = Item(sub_batch.item_id)
+			filename = item.image_meta[sub_batch.url]['filename']
 			
-		urllib.urlretrieve (sub_batch.url, filename)
-		
-		if subprocess.check_output(['identify', '-format', '%m', filename]) != 'TIFF':
-			subprocess.call(['convert', '-compress', 'none', filename, '%s.tif' % filename])
-			os.remove('%s' % filename)
+			if filename:
+				bucket.delete_key(default_folder + filename)
+			
+			sub_batch.status = 'deleted'
+			sub_batch.save()
+			
 		else:
-			os.rename('%s' % filename, '%s.tif' % filename)
+			if sub_batch.order > 0:
+				filename = '/tmp/%s_%s' % (sub_batch.item_id, sub_batch.order)
+				destination = '%s/%s.jp2' % (sub_batch.item_id, sub_batch.order)
+			else:
+				filename = '/tmp/%s' % sub_batch.item_id
+				destination = '%s.jp2' % sub_batch.item_id
+			
+			urllib.urlretrieve (sub_batch.url, filename)
 		
-		subprocess.call(['kdu_compress', '-i', '%s.tif' % filename, '-o', '%s.jp2' % filename, '-rate', '-,0.5', 'Clayers=2', 'Creversible=yes', 'Clevels=8', 'Cprecincts={256,256},{256,256},{128,128}', 'Corder=RPCL', 'ORGgen_plt=yes', 'ORGtparts=R', 'Cblk={64,64}'])
+			if subprocess.check_output(['identify', '-format', '%m', filename]) != 'TIFF':
+				subprocess.call(['convert', '-compress', 'none', filename, '%s.tif' % filename])
+				os.remove('%s' % filename)
+			else:
+				os.rename('%s' % filename, '%s.tif' % filename)
+		
+			subprocess.call(['kdu_compress', '-i', '%s.tif' % filename, '-o', '%s.jp2' % filename, '-rate', '-,0.5', 'Clayers=2', 'Creversible=yes', 'Clevels=8', 'Cprecincts={256,256},{256,256},{128,128}', 'Corder=RPCL', 'ORGgen_plt=yes', 'ORGtparts=R', 'Cblk={64,64}'])
 
-		source_path = '%s.jp2' % filename
-		source_size = os.stat(source_path).st_size
-		chunk_count = int(math.ceil(source_size / float(chunk_size)))
-		mp = bucket.initiate_multipart_upload(default_folder + destination)
+			source_path = '%s.jp2' % filename
+			source_size = os.stat(source_path).st_size
+			chunk_count = int(math.ceil(source_size / float(chunk_size)))
+			mp = bucket.initiate_multipart_upload(default_folder + destination)
 				
-		for i in range(chunk_count):
-			offset = chunk_size * i
-			bytes = min(chunk_size, source_size - offset)
+			for i in range(chunk_count):
+				offset = chunk_size * i
+				bytes = min(chunk_size, source_size - offset)
 					
-			with FileChunkIO(source_path, 'r', offset=offset, bytes=bytes) as fp:
-				mp.upload_part_from_file(fp, part_num=i + 1)
+				with FileChunkIO(source_path, 'r', offset=offset, bytes=bytes) as fp:
+					mp.upload_part_from_file(fp, part_num=i + 1)
 				
-		mp.complete_upload()
+			mp.complete_upload()
 		
-		test = identify_output_regular.search(subprocess.check_output(['identify', '-format', '{"width": %w, "height": %h}', '%s.tif' % filename]))
+			test = identify_output_regular.search(subprocess.check_output(['identify', '-format', '{"width": %w, "height": %h}', '%s.tif' % filename]))
 		
-		if test:
-			sub_batch.image_meta = json.loads(test.group('size_json'))
-		else:
-			raise Exception
+			if test:
+				sub_batch.image_meta = json.loads(test.group('size_json'))
+				sub_batch.image_meta['filename'] = destination
+				sub_batch.image_meta['order'] = sub_batch.order
+			else:
+				raise Exception
 		
-		os.remove('%s.jp2' % filename)
-		os.remove('%s.tif' % filename)
+			os.remove('%s.jp2' % filename)
+			os.remove('%s.tif' % filename)
 
-		sub_batch.status = 'ok'
-		sub_batch.save()
+			sub_batch.status = 'ok'
+			sub_batch.save()
 
 	except:
 		sub_batch.attempts += 1
@@ -91,7 +104,11 @@ def ingestQueue(batch_id, sub_batch_id):
 
 			return ingestQueue.apply_async(args=[batch.id, sub_batch.id], countdown=rand)
 		else:
-			sub_batch.status = 'error'
+			if sub_batch.type != 'del':
+				sub_batch.status = 'error'
+			else:
+				sub_batch.status = 'deleted'
+				
 			sub_batch.save()
 
 	if batch.increment_finished_images() >= batch.sub_batches_count:
@@ -101,35 +118,44 @@ def ingestQueue(batch_id, sub_batch_id):
 
 
 def finalizeIngest(batch):
-	item_ids = {}
+	items = {}
 	
 	for sub_batch_id in batch.sub_batches_ids:
 		sub_batch = SubBatch(sub_batch_id, batch.id)
 				
-		if item_ids.has_key(sub_batch.item_id):
-			item_ids[sub_batch.item_id].append((sub_batch.url, sub_batch.image_meta, sub_batch.status))
+		if items.has_key(sub_batch.item_id):
+			items[sub_batch.item_id].append((sub_batch.url, sub_batch.image_meta, sub_batch.status))
 		else:
-			item_ids[sub_batch.item_id] = [(sub_batch.url, sub_batch.image_meta, sub_batch.status)]
+			items[sub_batch.item_id] = [(sub_batch.url, sub_batch.image_meta, sub_batch.status)]
 	
 	order = 0
 	
-	for item_id in item_ids.keys():
+	for item_id in items.keys():
 		item = Item(item_id)
-		item_status = 'ok'
 		
-		for data in item_ids[item_id]:
-			url = data[0]
-			image_meta = data[1]
-			status = data[2]
-			item.image_meta[url] = image_meta
+		if batch.items[order]['status'] == 'deleted':
+			item.delete()
+		else:
+			item_status = 'ok'
+		
+			for data in items[item_id]:
+				url = data[0]
+				image_meta = data[1]
+				sub_batch_status = data[2]
+				
+				if sub_batch_status == 'deleted':
+					item.image_meta.pop(url, None)
+				else:
+					item.image_meta[url] = image_meta
 			
-			if status != 'ok':
-				item_status = status
+				if sub_batch_status == 'pending' or sub_batch_status == 'error':
+					item_status = 'error'
 		
-		batch.items[order]['status'] = item_status
+			batch.items[order]['status'] = item_status
 		
-		item.lock = False
-		item.save()
+			item.lock = False
+			item.save()
+			
 		order += 1
 			
 	batch.save()
