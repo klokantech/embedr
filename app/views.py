@@ -292,39 +292,67 @@ def ingest():
 		except:
 			abort(404)
 
-		if type(data) is not list:
+		if type(data) is not list or len(data) == 0:
 			abort(404)
 		
 		item_ids = []
+		errors = []
+		order = 1
 		
 		# validation
 		for item in data:
 			if type(item) is not dict:
-				abort(404)
+				errors.append("The item num. %s must be inside of '{}'" % order)
+				continue
+			
+			item = dict((k.lower(), v) for k, v in item.iteritems())
 
 			if not item.has_key('id'):
-				abort(404)
+				errors.append("The item num. %s must have unique ID" % order)
+				continue
 			
 			if item['id'] in item_ids:
-				abort(404)
+				errors.append("The item num. %s must have unique ID" % order)
+				continue
 					
 			if not id_regular.match(item['id']):
-				abort(404)
+				errors.append("The item num. %s must have valid ID" % order)
 			
 			if item.has_key('status') and (len(item) != 2 or item['status'] != 'deleted'):
-				abort(404)
+				errors.append("The item num. %s has status, but it isn't set to 'deleted' or there are more fields" % order)
+				continue
 			
 			if item.has_key('status'):
 				continue
 			
+			# another tests are usefull only for items which aren't marked to be deleted
+			
 			if not item.has_key('url') or type(item['url']) != list or len(item['url']) == 0:
-				abort(404)
+				errors.append("The item num. %s doesn't have url field, or it isn't a list or a list is empty" % order)
+				continue
 			
 			for url in item['url']:
 				if not url_regular.match(url):
-					abort(404)
+					errors.append("The '%s' url in the item num. %s isn't valid url" % (url, order))
+			
+			for key in item.keys():
+				if key not in ['id', 'title', 'creator', 'source', 'institution', 'institution_link', 'license', 'description', 'url']:
+					errors.append("The item num. %s has not allowed field '%s'" % (order, key))
+			
+			if item.has_key('source') and not url_regular.match(item['source']):
+				errors.append("The item num. %s doesn't have valid url '%s' in the source field" % (order, item['source']))
+			
+			if item.has_key('institution_link') and not url_regular.match(item['institution_link']):
+				errors.append("The item num. %s doesn't have valid url '%s' in the institution_link field" % (order, item['institution_link']))
+			
+			if item.has_key('license') and not url_regular.match(item['license']):
+				errors.append("The item num. %s doesn't have valid url '%s' in the license field" % (order, item['license']))
 			
 			item_ids.append(item['id'])
+			order += 1
+		
+		if errors:
+			return json.dumps({'errors': errors}), 404, {'Content-Type': 'application/json'}
 		
 		batch = Batch()
 		sub_batches_count = 0
