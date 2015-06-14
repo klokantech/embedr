@@ -8,6 +8,7 @@ from urlparse import urlparse
 from flask import request, render_template, abort, url_for, g
 import simplejson as json
 from flask import current_app as app
+import bleach
 
 from iiif_manifest_factory import ManifestFactory
 from ingest import ingestQueue
@@ -15,6 +16,8 @@ from models import Item, Batch, SubBatch
 from exceptions import NoItemInDb, ErrorItemImport
 from helper import prepareTileSources, trimFileExtension
 
+
+ALLOWED_TAGS = ['b', 'blockquote', 'code', 'em', 'i', 'li', 'ol', 'strong', 'ul']
 
 item_url_regular = re.compile(r"""
 	^/
@@ -386,6 +389,15 @@ def ingest():
 			
 			# update or create a new item
 			try:
+				if item_data.has_key('title'):
+					item_data['title'] = bleach.clean(item_data['title'], tags=[], attributes=[], styles=[], strip=True)
+				if item_data.has_key('creator'):
+					item_data['creator'] = bleach.clean(item_data['creator'], tags=[], attributes=[], styles=[], strip=True)
+				if item_data.has_key('institution'):
+					item_data['institution'] = bleach.clean(item_data['institution'], tags=[], attributes=[], styles=[], strip=True)
+				if item_data.has_key('description'):
+					item_data['description'] = bleach.clean(item_data['description'], tags=ALLOWED_TAGS, attributes=[], styles=[], strip=True)
+				
 				item = Item(unique_id, item_data)
 				item.lock = True
 			except NoItemInDb, ErrorItemImport:
