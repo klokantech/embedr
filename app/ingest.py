@@ -143,13 +143,18 @@ def finalizeIngest(batch):
 				image_meta = data[1]
 				sub_batch_status = data[2]
 				
-				if sub_batch_status == 'deleted':
-					item.image_meta.pop(url, None)
-				else:
-					item.image_meta[url] = image_meta
-			
 				if sub_batch_status == 'pending' or sub_batch_status == 'error':
 					item_status = 'error'
+					
+					for i in range(0,len(item.url)):
+						if item.url[i] == url:
+							del item.url[i]
+							break
+				else:				
+					if sub_batch_status == 'deleted':
+						item.image_meta.pop(url, None)
+					else:
+						item.image_meta[url] = image_meta
 		
 			batch.items[order]['status'] = item_status
 		

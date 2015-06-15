@@ -287,6 +287,31 @@ def ingest():
 				batch = None
 	
 			if batch:
+				item_sub_batches = {}
+				
+				for sub_batch_id in batch.sub_batches_ids:
+					sub_batch = SubBatch(sub_batch_id, batch.id)
+					item_sub_batches['%s@%s' % (sub_batch.item_id, sub_batch.url)] = sub_batch.status
+				
+				order = 0
+				print item_sub_batches
+				for i in batch.items:
+					item = Item(i['id'])
+					i['urls'] = []
+					
+					for url in i['url']:
+						# actualy ingested url
+						if item_sub_batches.has_key('%s@%s' % (i['id'], url)):
+							i['urls'].append(item_sub_batches['%s@%s' % (i['id'], url)])
+						# ingested url in past
+						else:
+							i['urls'].append('ok')
+					
+					i.pop('url', None)
+					
+					batch.items[order] = i
+					order += 1
+					
 				return json.JSONEncoder().encode(batch.items), 200, {'Content-Type': 'application/json'}
 		
 		abort(404)
@@ -376,7 +401,7 @@ def ingest():
 		# processing
 		for item_data in data:
 			unique_id = item_data['id']
-			b = {'id': unique_id}
+			b = {'id': unique_id, 'url': item_data['url']}
 			item_url_ingested_count = 0
 			
 			# delete a item
@@ -411,9 +436,7 @@ def ingest():
 					item_data['institution'] = bleach.clean(item_data['institution'], tags=[], attributes=[], styles=[], strip=True)
 				if item_data.has_key('description'):
 					item_data['description'] = bleach.clean(item_data['description'], tags=ALLOWED_TAGS, attributes=[], styles=[], strip=True)
-				
 
-				
 				item = Item(unique_id, item_data)
 				item.lock = True
 			except NoItemInDb, ErrorItemImport:
@@ -436,7 +459,6 @@ def ingest():
 					# some new url
 					if url not in old_item.url:
 						order += 1
-						item.image_meta[url] = {}
 						data = {'url': url, 'item_id': item.id, 'order': order}
 						sub_batch = SubBatch(sub_batches_count, batch.id, data)
 						batch.sub_batches_ids.append(sub_batch.id)
@@ -455,7 +477,6 @@ def ingest():
 						
 			# new item
 			else:
-				item.image_meta = {}
 				order = 0
 				
 				for url in item.url:
