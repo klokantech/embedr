@@ -294,9 +294,8 @@ def ingest():
 					item_sub_batches['%s@%s' % (sub_batch.item_id, sub_batch.url)] = sub_batch.status
 				
 				order = 0
-				print item_sub_batches
+
 				for i in batch.items:
-					item = Item(i['id'])
 					i['urls'] = []
 					
 					for url in i['url']:

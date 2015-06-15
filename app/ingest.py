@@ -22,6 +22,11 @@ identify_output_regular = re.compile(r'''
 	\n$
 	''', re.VERBOSE)
 
+CHUNK_SIZE = 52428800
+DEFAULT_FOLDER = 'jp2_bl/'
+DEFAULT_BUCKET = 'storage.hawk.bucket'
+MAX_SUB_BATCH_REPEAT = 1
+
 
 @task_queue.task
 def ingestQueue(batch_id, sub_batch_id):
@@ -30,20 +35,16 @@ def ingestQueue(batch_id, sub_batch_id):
 		sub_batch = SubBatch(sub_batch_id, batch_id)
 	except NoItemInDb, ErrorItemImport:
 		return -1
-		
-	os.environ['S3_USE_SIGV4'] = 'True'
-	s3 = boto.connect_s3(is_secure=False,host='s3.eu-central-1.amazonaws.com')
-	bucket = s3.get_bucket('storage.hawk.bucket')
-	chunk_size = 52428800
-	default_folder = 'jp2_bl/'
 	
 	try:
+		bucket = getBucket()
+		
 		if sub_batch.type == 'del':
 			item = Item(sub_batch.item_id)
 			filename = item.image_meta[sub_batch.url]['filename']
 			
 			if filename:
-				bucket.delete_key(default_folder + filename)
+				bucket.delete_key(DEFAULT_FOLDER + filename)
 			
 			sub_batch.status = 'deleted'
 			sub_batch.save()
@@ -68,12 +69,12 @@ def ingestQueue(batch_id, sub_batch_id):
 
 			source_path = '%s.jp2' % filename
 			source_size = os.stat(source_path).st_size
-			chunk_count = int(math.ceil(source_size / float(chunk_size)))
-			mp = bucket.initiate_multipart_upload(default_folder + destination)
+			chunk_count = int(math.ceil(source_size / float(CHUNK_SIZE)))
+			mp = bucket.initiate_multipart_upload(DEFAULT_FOLDER + destination)
 				
 			for i in range(chunk_count):
-				offset = chunk_size * i
-				bytes = min(chunk_size, source_size - offset)
+				offset = CHUNK_SIZE * i
+				bytes = min(CHUNK_SIZE, source_size - offset)
 					
 				with FileChunkIO(source_path, 'r', offset=offset, bytes=bytes) as fp:
 					mp.upload_part_from_file(fp, part_num=i + 1)
@@ -98,7 +99,7 @@ def ingestQueue(batch_id, sub_batch_id):
 	except:
 		sub_batch.attempts += 1
 		
-		if sub_batch.attempts < 5:
+		if sub_batch.attempts < MAX_SUB_BATCH_REPEAT:
 			sub_batch.save()
 			rand = (sub_batch.attempts * 60) + random.randint(sub_batch.attempts * 60, sub_batch.attempts * 60 * 2)
 
@@ -157,12 +158,32 @@ def finalizeIngest(batch):
 						item.image_meta[url] = image_meta
 		
 			batch.items[order]['status'] = item_status
-		
-			item.lock = False
-			item.save()
+			
+			if item_status == 'error':
+				try:
+					bucket = getBucket()
+				
+					for url in item.url:
+						filename = item.image_meta[url]['filename']
+			
+						if filename:
+							bucket.delete_key(DEFAULT_FOLDER + filename)
+				except:
+					pass
+					
+				item.delete()
+			else:
+				item.lock = False
+				item.save()
 			
 		order += 1
 			
 	batch.save()
 
 	return
+
+
+def getBucket():
+	os.environ['S3_USE_SIGV4'] = 'True'
+	s3 = boto.connect_s3(is_secure=False,host='s3.eu-central-1.amazonaws.com')
+	return s3.get_bucket(DEFAULT_BUCKET)
