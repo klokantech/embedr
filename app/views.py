@@ -263,6 +263,10 @@ def oEmbed():
 	data[u'url'] = '%s/%s/full/%s/0/native.jpg' % (app.config['IIIF_SERVER'], trimFileExtension(item.image_meta[item.url[order]]['filename']), size)
 	data[u'width'] = '%.0f' % width
 	data[u'height'] = '%.0f' % height
+	data[u'author_name'] = item.creator
+	data[u'author_url'] = item.source
+	data[u'provider_name'] = item.institution
+	data[u'provider_url'] = item.institution_link
 
 	if format == 'xml':
 		return render_template('oembed_xml.html', data = data), 200, {'Content-Type': 'text/xml'}
@@ -300,7 +304,7 @@ def ingest():
 		
 		item_ids = []
 		errors = []
-		order = 1
+		order = 0
 		
 		# validation
 		for item in data:
@@ -330,6 +334,14 @@ def ingest():
 			
 			# another tests are usefull only for items which aren't marked to be deleted
 			
+			# convert some input field's names to the internal names
+			if item.has_key('institutionlink'):
+				item['institution_link'] = item['institutionlink']
+				item.pop('institutionlink', None)
+			if item.has_key('imageurl'):
+				item['url'] = item['imageurl']
+				item.pop('imageurl', None)
+			
 			if not item.has_key('url') or type(item['url']) != list or len(item['url']) == 0:
 				errors.append("The item num. %s doesn't have url field, or it isn't a list or a list is empty" % order)
 				continue
@@ -340,18 +352,19 @@ def ingest():
 			
 			for key in item.keys():
 				if key not in ['id', 'title', 'creator', 'source', 'institution', 'institution_link', 'license', 'description', 'url']:
-					errors.append("The item num. %s has not allowed field '%s'" % (order, key))
+					errors.append("The item num. %s has a not allowed field '%s'" % (order, key))
 			
 			if item.has_key('source') and not url_regular.match(item['source']):
-				errors.append("The item num. %s doesn't have valid url '%s' in the source field" % (order, item['source']))
+				errors.append("The item num. %s doesn't have valid url '%s' in the Source field" % (order, item['source']))
 			
 			if item.has_key('institution_link') and not url_regular.match(item['institution_link']):
-				errors.append("The item num. %s doesn't have valid url '%s' in the institution_link field" % (order, item['institution_link']))
+				errors.append("The item num. %s doesn't have valid url '%s' in the InstitutionLink field" % (order, item['institution_link']))
 			
 			if item.has_key('license') and not url_regular.match(item['license']):
-				errors.append("The item num. %s doesn't have valid url '%s' in the license field" % (order, item['license']))
+				errors.append("The item num. %s doesn't have valid url '%s' in the License field" % (order, item['license']))
 			
 			item_ids.append(item['id'])
+			data[order] = item
 			order += 1
 		
 		if errors:
@@ -389,6 +402,7 @@ def ingest():
 			
 			# update or create a new item
 			try:
+				# sanitising input
 				if item_data.has_key('title'):
 					item_data['title'] = bleach.clean(item_data['title'], tags=[], attributes=[], styles=[], strip=True)
 				if item_data.has_key('creator'):
@@ -397,6 +411,8 @@ def ingest():
 					item_data['institution'] = bleach.clean(item_data['institution'], tags=[], attributes=[], styles=[], strip=True)
 				if item_data.has_key('description'):
 					item_data['description'] = bleach.clean(item_data['description'], tags=ALLOWED_TAGS, attributes=[], styles=[], strip=True)
+				
+
 				
 				item = Item(unique_id, item_data)
 				item.lock = True
