@@ -14,6 +14,7 @@ import requests
 
 from app.task_queue import task_queue
 from models import Item, Batch, SubBatch
+from exceptions import NoItemInDb, ErrorItemImport
 
 
 identify_output_regular = re.compile(r'''
@@ -128,11 +129,14 @@ def finalizeIngest(batch):
 			items[sub_batch.item_id].append((sub_batch.url, sub_batch.image_meta, sub_batch.status))
 		else:
 			items[sub_batch.item_id] = [(sub_batch.url, sub_batch.image_meta, sub_batch.status)]
-	
-	order = 0
-	
-	for item_id in items.keys():
-		item = Item(item_id)
+
+	for order in range(0, len(batch.items)):
+		item_id = batch.items[order]['id']
+		
+		if item_id in items.keys():
+			item = Item(item_id)
+		else:
+			continue
 		
 		if batch.items[order]['status'] == 'deleted':
 			item.delete()
@@ -153,7 +157,9 @@ def finalizeIngest(batch):
 							break
 				else:				
 					if sub_batch_status == 'deleted':
-						item.image_meta.pop(url, None)
+						# if the image is being realy deleted not only being reshaffled
+						if not url in item.url:
+							item.image_meta.pop(url, None)
 					else:
 						item.image_meta[url] = image_meta
 		
@@ -175,8 +181,6 @@ def finalizeIngest(batch):
 			else:
 				item.lock = False
 				item.save()
-			
-		order += 1
 			
 	batch.save()
 

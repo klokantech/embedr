@@ -276,6 +276,7 @@ def oEmbed():
 
 #@app.route('/ingest', methods=['GET', 'POST'])
 def ingest():
+	# show info about a ingest
 	if request.method == 'GET':
 		batch_id = request.args.get('batch_id', None)
 
@@ -291,11 +292,16 @@ def ingest():
 				
 				for sub_batch_id in batch.sub_batches_ids:
 					sub_batch = SubBatch(sub_batch_id, batch.id)
-					item_sub_batches['%s@%s' % (sub_batch.item_id, sub_batch.url)] = sub_batch.status
+					
+					if not item_sub_batches.has_key('%s@%s' % (sub_batch.item_id, sub_batch.url)) or (item_sub_batches.has_key('%s@%s' % (sub_batch.item_id, sub_batch.url)) and item_sub_batches['%s@%s' % (sub_batch.item_id, sub_batch.url)] != 'ok'):
+						item_sub_batches['%s@%s' % (sub_batch.item_id, sub_batch.url)] = sub_batch.status
 				
 				order = 0
 
 				for i in batch.items:
+					if i['status'] == 'deleted':
+						continue
+						
 					i['urls'] = []
 					
 					for url in i['url']:
@@ -314,6 +320,7 @@ def ingest():
 				return json.JSONEncoder().encode(batch.items), 200, {'Content-Type': 'application/json'}
 		
 		abort(404)
+	# new ingest
 	else:
 		if request.headers.get('Content-Type') != 'application/json':
 			abort(404)
@@ -400,7 +407,7 @@ def ingest():
 		# processing
 		for item_data in data:
 			unique_id = item_data['id']
-			b = {'id': unique_id, 'url': item_data['url']}
+			b = {'id': unique_id} # batch for one item
 			item_url_ingested_count = 0
 			
 			# delete a item
@@ -423,6 +430,8 @@ def ingest():
 				
 				batch.items.append(b)
 				continue
+			
+			b['url'] = item_data['url']
 			
 			# update or create a new item
 			try:
@@ -450,30 +459,38 @@ def ingest():
 			if old_item:
 				item.image_meta = old_item.image_meta
 				order = 0
+				new_count = len(item.url)
+				old_count = len(old_item.url)
 				
-				for url in item.image_meta.keys():
-					order = max(order, int(item.image_meta[url]['order']))				
-
-				for url in item.url:
-					# some new url
-					if url not in old_item.url:
-						order += 1
-						data = {'url': url, 'item_id': item.id, 'order': order}
-						sub_batch = SubBatch(sub_batches_count, batch.id, data)
-						batch.sub_batches_ids.append(sub_batch.id)
-						item_url_ingested_count += 1
-						sub_batches_count += 1
-				
-				for url in old_item.url:
-					# some old url to be deleted
-					if url not in item.url:
-						data = {'url': url, 'item_id': item.id, 'type': 'del'}
-						sub_batch = SubBatch(sub_batches_count, batch.id, data)
-						batch.sub_batches_ids.append(sub_batch.id)
-						item_url_ingested_count += 1
-						sub_batches_count += 1
-
+				for order in range(0, max(new_count, old_count)):
+					if order < new_count and order < old_count:
+						# different url on the specific position --> overwrite
+						if item.url[order] != old_item.url[order]:
+							data = {'url': item.url[order], 'item_id': item.id, 'order': order, 'type': 'add'}
+							sub_batch = SubBatch(sub_batches_count, batch.id, data)
+							batch.sub_batches_ids.append(sub_batch.id)
+							item_url_ingested_count += 1
+							sub_batches_count += 1
+					else:
+						# end of both lists
+						if new_count == old_count:
+							break
 						
+						# a new url list is shorter than old one --> something to delelete
+						if order >= new_count:
+							data = {'url': old_item.url[order], 'item_id': item.id, 'type': 'del'}
+							sub_batch = SubBatch(sub_batches_count, batch.id, data)
+							batch.sub_batches_ids.append(sub_batch.id)
+							item_url_ingested_count += 1
+							sub_batches_count += 1
+						# a new url list is longer than old one --> something to add
+						elif order >= old_count:
+							data = {'url': item.url[order], 'item_id': item.id, 'order': order, 'type': 'add'}
+							sub_batch = SubBatch(sub_batches_count, batch.id, data)
+							batch.sub_batches_ids.append(sub_batch.id)
+							item_url_ingested_count += 1
+							sub_batches_count += 1
+					
 			# new item
 			else:
 				order = 0
