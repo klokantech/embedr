@@ -1,6 +1,6 @@
 FROM debian:7
 
-COPY ./ /usr/local/src/hawk/ingest
+COPY requirements.txt /usr/local/src/hawk/requirements.txt
 
 RUN apt-get -qq update && apt-get -qq -y install \
     memcached \
@@ -15,6 +15,6 @@ RUN apt-get -qq update && apt-get -qq -y install libfcgi0ldbl \
     libtiff4 \
 	libpng12-0
 
-RUN pip install -q -r /usr/local/src/hawk/ingest/requirements.txt
+RUN pip install -q -r /usr/local/src/hawk/requirements.txt
 RUN wget --no-verbose http://downloads.klokantech.com/iiifserver/iiifserver-1.0.0.debian-wheezy.amd64.deb
 RUN dpkg -i iiifserver-1.0.0.debian-wheezy.amd64.deb

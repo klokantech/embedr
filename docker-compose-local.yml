@@ -7,22 +7,29 @@ redis:
   command: redis-server --appendonly yes
 
 embedhawk:
-  build: .
-  command: /usr/bin/python /usr/local/src/hawk/run_local.py
+  build: embed
+  command: /usr/bin/python /usr/local/src/hawk/run.py
   ports:
     - "5000:5000"
   links:
     - redis
   volumes:
-    - ./:/usr/local/src/hawk/
+    - ./embed:/usr/local/src/hawk/
+  environment:
+    - SERVER_NAME=46fad52e.ngrok.com
+    - IIIF_SERVER=http://iiifhawk.klokantech.com
+    - REDIS_URL=redis://redis
+    - DEBUG=True
+    - HOST=0.0.0.0
+    - PORT=5000
 
 ingest:
   build: ./ingest
   links:
     - redis
   volumes:
-    - ./:/usr/local/src/hawk/
+    - ./embed:/usr/local/src/hawk/
     - .boto:/etc/boto.cfg
   environment:
     - C_FORCE_ROOT=true
-  command: celery --app=app.task_queue.task_queue worker -l info --workdir=/usr/local/src/hawk/
+  command: celery --app=app.task_queue.task_queue worker -E -l info --workdir=/usr/local/src/hawk/

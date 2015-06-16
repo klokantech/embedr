@@ -14,6 +14,7 @@ nginx:
     - embedhawk
   volumes:
     - nginx/:/etc/nginx/conf.d/
+    - .htpasswd:/etc/nginx/.htpasswd
 
 embedhawk:
   build: .
@@ -23,14 +24,18 @@ embedhawk:
   links:
     - redis
   volumes:
-    - ./:/usr/local/src/hawk/
+    - ./embed:/usr/local/src/hawk/
+  environment:
+    - SERVER_NAME=embedhawk.klokantech.com
+    - IIIF_SERVER=http://iiifhawk.klokantech.com
+    - REDIS_URL=redis://redis
 
 ingest:
   build: ./ingest
   links:
     - redis
   volumes:
-    - ./:/usr/local/src/hawk/
+    - ./embed:/usr/local/src/hawk/
     - .boto:/etc/boto.cfg
   environment:
     - C_FORCE_ROOT=true
