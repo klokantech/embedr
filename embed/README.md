@@ -1,0 +1,2 @@
+The embed docker container runs wsgi flask embedding application. Settings for server name, some urls, etc. can be set via docker-compose. There is supervisord.conf which is pushed to the right place into container by docker-compose and it settup and run wsgi server itself.
+The requirements.txt file is used during the build of the container and it specified python packages which are used by embed application.

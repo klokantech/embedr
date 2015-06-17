@@ -23,10 +23,13 @@ identify_output_regular = re.compile(r'''
 	\n$
 	''', re.VERBOSE)
 
-CHUNK_SIZE = 52428800
-DEFAULT_FOLDER = 'jp2_bl/'
-DEFAULT_BUCKET = 'storage.hawk.bucket'
-MAX_SUB_BATCH_REPEAT = 1
+S3_HOST = os.getenv('S3_HOST', '')
+S3_CHUNK_SIZE = int(os.getenv('S3_CHUNK_SIZE', 52428800))
+S3_DEFAULT_FOLDER = os.getenv('S3_DEFAULT_FOLDER', '')
+S3_DEFAULT_BUCKET = os.getenv('S3_DEFAULT_BUCKET', '')
+MAX_SUB_BATCH_REPEAT = int(os.getenv('MAX_SUB_BATCH_REPEAT', 1))
+CLOUDSEARCH_REGION = os.getenv('CLOUDSEARCH_REGION', '')
+CLOUDSEARCH_DOMAIN = os.getenv('CLOUDSEARCH_DOMAIN', '')
 
 
 @task_queue.task
@@ -45,7 +48,7 @@ def ingestQueue(batch_id, sub_batch_id):
 			filename = item.image_meta[sub_batch.url]['filename']
 			
 			if filename:
-				bucket.delete_key(DEFAULT_FOLDER + filename)
+				bucket.delete_key(S3_DEFAULT_FOLDER + filename)
 			
 			sub_batch.status = 'deleted'
 			sub_batch.save()
@@ -70,12 +73,12 @@ def ingestQueue(batch_id, sub_batch_id):
 
 			source_path = '%s.jp2' % filename
 			source_size = os.stat(source_path).st_size
-			chunk_count = int(math.ceil(source_size / float(CHUNK_SIZE)))
-			mp = bucket.initiate_multipart_upload(DEFAULT_FOLDER + destination)
+			chunk_count = int(math.ceil(source_size / float(S3_CHUNK_SIZE)))
+			mp = bucket.initiate_multipart_upload(S3_DEFAULT_FOLDER + destination)
 				
 			for i in range(chunk_count):
-				offset = CHUNK_SIZE * i
-				bytes = min(CHUNK_SIZE, source_size - offset)
+				offset = S3_CHUNK_SIZE * i
+				bytes = min(S3_CHUNK_SIZE, source_size - offset)
 					
 				with FileChunkIO(source_path, 'r', offset=offset, bytes=bytes) as fp:
 					mp.upload_part_from_file(fp, part_num=i + 1)
@@ -121,6 +124,11 @@ def ingestQueue(batch_id, sub_batch_id):
 
 def finalizeIngest(batch):
 	items = {}
+
+	try:
+		cloudsearch = getCloudSearch()
+	except:
+		cloudsearch = None
 	
 	for sub_batch_id in batch.sub_batches_ids:
 		sub_batch = SubBatch(sub_batch_id, batch.id)
@@ -140,6 +148,10 @@ def finalizeIngest(batch):
 		
 		if batch.items[order]['status'] == 'deleted':
 			item.delete()
+			
+			# cloudsearch item del
+			if cloudsearch is not None:
+				cloudsearch.delete(item.id)
 		else:
 			item_status = 'ok'
 		
@@ -173,15 +185,28 @@ def finalizeIngest(batch):
 						filename = item.image_meta[url]['filename']
 			
 						if filename:
-							bucket.delete_key(DEFAULT_FOLDER + filename)
+							bucket.delete_key(S3_DEFAULT_FOLDER + filename)
 				except:
 					pass
 					
 				item.delete()
+	
+				# cloudsearch item del
+				if cloudsearch is not None:
+					cloudsearch.delete(item.id)
 			else:
 				item.lock = False
 				item.save()
-			
+				
+				# cloudsearch item add (or update)
+				if cloudsearch is not None:
+					cloudsearch.add(item.id, {'id': item.id, 'title': item.title, 'creator': item.creator, 'source': item.source, 'institution': item.institution, 'institution_link': item.institution_link, 'license': item.license, 'description': item.description})
+	
+	# commit all items to cloudsearch at once
+	if cloudsearch is not None:		
+		cloudsearch.commit()
+		cloudsearch.clear_sdf()
+		
 	batch.save()
 
 	return
@@ -189,5 +214,9 @@ def finalizeIngest(batch):
 
 def getBucket():
 	os.environ['S3_USE_SIGV4'] = 'True'
-	s3 = boto.connect_s3(is_secure=False,host='s3.eu-central-1.amazonaws.com')
-	return s3.get_bucket(DEFAULT_BUCKET)
+	s3 = boto.connect_s3(host=S3_HOST)
+	return s3.get_bucket(S3_DEFAULT_BUCKET)
+
+
+def getCloudSearch():
+	return boto.connect_cloudsearch2(region=CLOUDSEARCH_REGION, sign_request=True).lookup(CLOUDSEARCH_DOMAIN).get_document_service()

@@ -1,5 +1,3 @@
-import os
-
 from celery_factory import celery_factory
 
 

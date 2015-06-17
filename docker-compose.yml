@@ -36,7 +36,16 @@ ingest:
     - redis
   volumes:
     - ./embed:/usr/local/src/hawk/
-    - .boto:/etc/boto.cfg
   environment:
     - C_FORCE_ROOT=true
-  command: celery --app=app.task_queue.task_queue worker -l info --workdir=/usr/local/src/hawk/
+    - REDIS_URL=redis://redis
+    - AWS_ACCESS_KEY_ID=
+    - AWS_SECRET_ACCESS_KEY=
+    - S3_CHUNK_SIZE=52428800
+    - S3_HOST=s3.eu-central-1.amazonaws.com
+    - S3_DEFAULT_FOLDER=jp2_bl/
+    - S3_DEFAULT_BUCKET=storage.hawk.bucket
+    - MAX_SUB_BATCH_REPEAT=1
+    - CLOUDSEARCH_REGION=eu-central-1
+    - CLOUDSEARCH_DOMAIN=embedhawk
+  command: celery --app=app.task_queue.task_queue worker --workdir=/usr/local/src/hawk/
