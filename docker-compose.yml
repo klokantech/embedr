@@ -11,13 +11,13 @@ nginx:
   ports:
     - "80:80"
   links:
-    - embedhawk
+    - embed
   volumes:
     - nginx/:/etc/nginx/conf.d/
     - .htpasswd:/etc/nginx/.htpasswd
 
-embedhawk:
-  build: .
+embed:
+  build: ./embed
   command: /usr/local/bin/supervisord -c /etc/supervisord/supervisord.conf
   expose:
     - "5000"
