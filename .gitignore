@@ -3,3 +3,4 @@ venv/
 *.DS_Store
 data/
 .boto
+docker-compose-local.yml
