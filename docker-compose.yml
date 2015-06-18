@@ -29,6 +29,10 @@ embed:
     - SERVER_NAME=embedhawk.klokantech.com
     - IIIF_SERVER=http://iiifhawk.klokantech.com
     - REDIS_URL=redis://redis
+    - AWS_ACCESS_KEY_ID=
+    - AWS_SECRET_ACCESS_KEY=
+    - CLOUDSEARCH_REGION=eu-central-1
+    - CLOUDSEARCH_DOMAIN=hawk
 
 ingest:
   build: ./ingest
@@ -45,7 +49,7 @@ ingest:
     - S3_HOST=s3.eu-central-1.amazonaws.com
     - S3_DEFAULT_FOLDER=jp2_bl/
     - S3_DEFAULT_BUCKET=storage.hawk.bucket
-    - MAX_SUB_BATCH_REPEAT=1
+    - MAX_SUB_BATCH_REPEAT=5
     - CLOUDSEARCH_REGION=eu-central-1
-    - CLOUDSEARCH_DOMAIN=embedhawk
+    - CLOUDSEARCH_DOMAIN=hawk
   command: celery --app=app.task_queue.task_queue worker --workdir=/usr/local/src/hawk/

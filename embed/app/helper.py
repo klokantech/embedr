@@ -1,6 +1,13 @@
+import os
 import math
 
+import boto
 from flask import current_app as app
+
+S3_HOST = os.getenv('S3_HOST', '')
+S3_DEFAULT_BUCKET = os.getenv('S3_DEFAULT_BUCKET', '')
+CLOUDSEARCH_REGION = os.getenv('CLOUDSEARCH_REGION', '')
+CLOUDSEARCH_DOMAIN = os.getenv('CLOUDSEARCH_DOMAIN', '')
 
 
 def prepareTileSources(item, url):
@@ -27,3 +34,13 @@ def prepareTileSources(item, url):
 def trimFileExtension(filename):
 	"""Trims '.jp2' from filename"""
 	return filename[:-4]
+
+
+def getBucket():
+	os.environ['S3_USE_SIGV4'] = 'True'
+	s3 = boto.connect_s3(host=S3_HOST)
+	return s3.get_bucket(S3_DEFAULT_BUCKET)
+
+
+def getCloudSearch():
+	return boto.connect_cloudsearch2(region=CLOUDSEARCH_REGION, sign_request=True).lookup(CLOUDSEARCH_DOMAIN).get_document_service()

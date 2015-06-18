@@ -8,13 +8,13 @@ import re
 
 import simplejson as json
 import redis
-import boto
 from filechunkio import FileChunkIO
 import requests
 
 from app.task_queue import task_queue
 from models import Item, Batch, SubBatch
 from exceptions import NoItemInDb, ErrorItemImport
+from helper import getBucket, getCloudSearch
 
 
 identify_output_regular = re.compile(r'''
@@ -23,13 +23,9 @@ identify_output_regular = re.compile(r'''
 	\n$
 	''', re.VERBOSE)
 
-S3_HOST = os.getenv('S3_HOST', '')
 S3_CHUNK_SIZE = int(os.getenv('S3_CHUNK_SIZE', 52428800))
 S3_DEFAULT_FOLDER = os.getenv('S3_DEFAULT_FOLDER', '')
-S3_DEFAULT_BUCKET = os.getenv('S3_DEFAULT_BUCKET', '')
 MAX_SUB_BATCH_REPEAT = int(os.getenv('MAX_SUB_BATCH_REPEAT', 1))
-CLOUDSEARCH_REGION = os.getenv('CLOUDSEARCH_REGION', '')
-CLOUDSEARCH_DOMAIN = os.getenv('CLOUDSEARCH_DOMAIN', '')
 
 
 @task_queue.task
@@ -210,13 +206,3 @@ def finalizeIngest(batch):
 	batch.save()
 
 	return
-
-
-def getBucket():
-	os.environ['S3_USE_SIGV4'] = 'True'
-	s3 = boto.connect_s3(host=S3_HOST)
-	return s3.get_bucket(S3_DEFAULT_BUCKET)
-
-
-def getCloudSearch():
-	return boto.connect_cloudsearch2(region=CLOUDSEARCH_REGION, sign_request=True).lookup(CLOUDSEARCH_DOMAIN).get_document_service()

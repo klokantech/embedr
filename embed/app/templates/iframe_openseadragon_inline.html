@@ -31,7 +31,7 @@
     	<h4>Source: {{ item.source }}</h4>
     	<h4>Publisher: {{ item.institution }}</h4>
     	<h4>Rights: {{ item.license }}</h4>
-    	<h4>Description: {{ item.description }}</h4>
+    	<h4>Description: {{ item.description | safe }}</h4>
     </div>
     <div id="map" style="width:100%;height:100%;"></div>
 

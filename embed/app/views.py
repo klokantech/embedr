@@ -14,20 +14,20 @@ from iiif_manifest_factory import ManifestFactory
 from ingest import ingestQueue
 from models import Item, Batch, SubBatch
 from exceptions import NoItemInDb, ErrorItemImport
-from helper import prepareTileSources, trimFileExtension
+from helper import prepareTileSources, trimFileExtension, getCloudSearch
 
 
 ALLOWED_TAGS = ['b', 'blockquote', 'code', 'em', 'i', 'li', 'ol', 'strong', 'ul']
 
 item_url_regular = re.compile(r"""
 	^/
-	(?P<unique_id>([-_.:~a-zA-Z0-9]){1,32})
+	(?P<unique_id>([-_.:~a-zA-Z0-9]){1,255})
 	/?
 	(?P<order>\d*)
 	""", re.VERBOSE)
 
 id_regular = re.compile(r"""
-	^([-_.:~a-zA-Z0-9]){1,32}$
+	^([-_.:~a-zA-Z0-9]){1,255}$
 	""", re.VERBOSE)
 
 url_regular = re.compile(ur'(?i)\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>]+|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]+|(\([^\s()<>]+\)))*\)|[^\s`!()\[\]{};:\'".,<>?\xab\xbb\u201c\u201d\u2018\u2019]))')
@@ -335,10 +335,11 @@ def ingest():
 		
 		item_ids = []
 		errors = []
-		order = 0
 		
 		# validation
-		for item in data:
+		for order in range(0, len(data)):
+			item = data[order]
+			
 			if type(item) is not dict:
 				errors.append("The item num. %s must be inside of '{}'" % order)
 				continue
@@ -385,24 +386,24 @@ def ingest():
 				if key not in ['id', 'title', 'creator', 'source', 'institution', 'institution_link', 'license', 'description', 'url']:
 					errors.append("The item num. %s has a not allowed field '%s'" % (order, key))
 			
-			if item.has_key('source') and not url_regular.match(item['source']):
+			if item.has_key('source') and item['source'] and not url_regular.match(item['source']):
 				errors.append("The item num. %s doesn't have valid url '%s' in the Source field" % (order, item['source']))
 			
-			if item.has_key('institution_link') and not url_regular.match(item['institution_link']):
+			if item.has_key('institution_link') and item['institution_link'] and not url_regular.match(item['institution_link']):
 				errors.append("The item num. %s doesn't have valid url '%s' in the InstitutionLink field" % (order, item['institution_link']))
 			
-			if item.has_key('license') and not url_regular.match(item['license']):
+			if item.has_key('license') and item['license'] and not url_regular.match(item['license']):
 				errors.append("The item num. %s doesn't have valid url '%s' in the License field" % (order, item['license']))
 			
 			item_ids.append(item['id'])
 			data[order] = item
-			order += 1
 		
 		if errors:
 			return json.dumps({'errors': errors}), 404, {'Content-Type': 'application/json'}
 		
 		batch = Batch()
 		sub_batches_count = 0
+		cloudsearch_direct_items = []
 		
 		# processing
 		for item_data in data:
@@ -458,7 +459,6 @@ def ingest():
 			# already stored item
 			if old_item:
 				item.image_meta = old_item.image_meta
-				order = 0
 				new_count = len(item.url)
 				old_count = len(old_item.url)
 				
@@ -490,6 +490,10 @@ def ingest():
 							batch.sub_batches_ids.append(sub_batch.id)
 							item_url_ingested_count += 1
 							sub_batches_count += 1
+				
+				# only metadata are changed not images --> no ingest --> update changes to CloudSearch directly
+				if item_url_ingested_count == 0:
+					cloudsearch_direct_items.append(item)
 					
 			# new item
 			else:
@@ -515,6 +519,19 @@ def ingest():
 
 		batch.sub_batches_count = sub_batches_count
 		batch.save()
+		
+		if cloudsearch_direct_items:
+			try:
+				cloudsearch = getCloudSearch()
+				
+				for item in cloudsearch_direct_items:
+					cloudsearch.add(item.id, {'id': item.id, 'title': item.title, 'creator': item.creator, 'source': item.source, 'institution': item.institution, 'institution_link': item.institution_link, 'license': item.license, 'description': item.description})
+				
+				cloudsearch.commit()
+				cloudsearch.clear_sdf()
+			except:
+				#TODO do some log
+				pass
 		
 		for sub_batch_id in batch.sub_batches_ids:
 			ingestQueue.delay(batch.id, sub_batch_id)
