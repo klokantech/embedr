@@ -4,6 +4,7 @@ import sys
 import os
 import re
 from urlparse import urlparse
+import time
 
 from flask import request, render_template, abort, url_for, g
 import simplejson as json
@@ -522,17 +523,17 @@ def ingest():
 
 		batch.sub_batches_count = sub_batches_count
 		batch.save()
-		
+
 		if cloudsearch_direct_items:
 			try:
 				cloudsearch = getCloudSearch()
 				count = 0
 				
 				for item in cloudsearch_direct_items:
-					cloudsearch.add(item.id, {'id': item.id, 'title': item.title, 'creator': item.creator, 'source': item.source, 'institution': item.institution, 'institution_link': item.institution_link, 'license': item.license, 'description': item.description})
+					cloudsearch.add(item.id[:127], {'id': item.id, 'title': item.title, 'creator': item.creator, 'source': item.source, 'institution': item.institution, 'institution_link': item.institution_link, 'license': item.license, 'description': item.description})
 					count += 1
 					
-					if count == CLOUDSEARCH_BATCH_SIZE:				
+					if count >= CLOUDSEARCH_BATCH_SIZE:				
 						cloudsearch.commit()
 						cloudsearch.clear_sdf()
 						count = 0
@@ -543,7 +544,7 @@ def ingest():
 			except:
 				#TODO do some log
 				pass
-		
+	
 		for sub_batch_id in batch.sub_batches_ids:
 			ingestQueue.delay(batch.id, sub_batch_id)
 		

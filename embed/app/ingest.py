@@ -150,7 +150,7 @@ def finalizeIngest(batch):
 			
 			# cloudsearch item del
 			if cloudsearch is not None:
-				cloudsearch.delete(item.id)
+				cloudsearch.delete(item.id[:127])
 		else:
 			item_status = 'ok'
 		
@@ -192,14 +192,14 @@ def finalizeIngest(batch):
 	
 				# cloudsearch item del
 				if cloudsearch is not None:
-					cloudsearch.delete(item.id)
+					cloudsearch.delete(item.id[:127])
 			else:
 				item.lock = False
 				item.save()
 				
 				# cloudsearch item add (or update)
 				if cloudsearch is not None:
-					cloudsearch.add(item.id, {'id': item.id, 'title': item.title, 'creator': item.creator, 'source': item.source, 'institution': item.institution, 'institution_link': item.institution_link, 'license': item.license, 'description': item.description})
+					cloudsearch.add(item.id[:127], {'id': item.id, 'title': item.title, 'creator': item.creator, 'source': item.source, 'institution': item.institution, 'institution_link': item.institution_link, 'license': item.license, 'description': item.description})
 		
 		count += 1
 		
