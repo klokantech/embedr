@@ -32,6 +32,9 @@ id_regular = re.compile(r"""
 
 url_regular = re.compile(ur'(?i)\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>]+|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]+|(\([^\s()<>]+\)))*\)|[^\s`!()\[\]{};:\'".,<>?\xab\xbb\u201c\u201d\u2018\u2019]))')
 
+CLOUDSEARCH_BATCH_SIZE = int(os.getenv('CLOUDSEARCH_BATCH_SIZE', 100))
+
+
 #@app.before_request
 def before_request():
 	g.db = app.extensions['redis'].redis
@@ -523,12 +526,20 @@ def ingest():
 		if cloudsearch_direct_items:
 			try:
 				cloudsearch = getCloudSearch()
+				count = 0
 				
 				for item in cloudsearch_direct_items:
 					cloudsearch.add(item.id, {'id': item.id, 'title': item.title, 'creator': item.creator, 'source': item.source, 'institution': item.institution, 'institution_link': item.institution_link, 'license': item.license, 'description': item.description})
+					count += 1
+					
+					if count == 500:				
+						cloudsearch.commit()
+						cloudsearch.clear_sdf()
+						count = 0
 				
-				cloudsearch.commit()
-				cloudsearch.clear_sdf()
+				if count > 0:				
+					cloudsearch.commit()
+					cloudsearch.clear_sdf()
 			except:
 				#TODO do some log
 				pass

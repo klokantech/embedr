@@ -26,6 +26,7 @@ identify_output_regular = re.compile(r'''
 S3_CHUNK_SIZE = int(os.getenv('S3_CHUNK_SIZE', 52428800))
 S3_DEFAULT_FOLDER = os.getenv('S3_DEFAULT_FOLDER', '')
 MAX_SUB_BATCH_REPEAT = int(os.getenv('MAX_SUB_BATCH_REPEAT', 1))
+CLOUDSEARCH_BATCH_SIZE = int(os.getenv('CLOUDSEARCH_BATCH_SIZE', 100))
 
 
 @task_queue.task
@@ -134,6 +135,8 @@ def finalizeIngest(batch):
 		else:
 			items[sub_batch.item_id] = [(sub_batch.url, sub_batch.image_meta, sub_batch.status)]
 
+	count = 0
+	
 	for order in range(0, len(batch.items)):
 		item_id = batch.items[order]['id']
 		
@@ -197,12 +200,27 @@ def finalizeIngest(batch):
 				# cloudsearch item add (or update)
 				if cloudsearch is not None:
 					cloudsearch.add(item.id, {'id': item.id, 'title': item.title, 'creator': item.creator, 'source': item.source, 'institution': item.institution, 'institution_link': item.institution_link, 'license': item.license, 'description': item.description})
-	
-	# commit all items to cloudsearch at once
-	if cloudsearch is not None:		
-		cloudsearch.commit()
-		cloudsearch.clear_sdf()
 		
+		count += 1
+		
+		if count >= CLOUDSEARCH_BATCH_SIZE and cloudsearch is not None:
+			try:
+				cloudsearch.commit()
+				cloudsearch.clear_sdf()
+			except:
+				#TODO do some log
+				pass
+				
+			count = 0
+	
 	batch.save()
 
+	if count > 0 and cloudsearch is not None:	
+		try:	
+			cloudsearch.commit()
+			cloudsearch.clear_sdf()
+		except:
+			#TODO do some log
+			pass
+		
 	return
