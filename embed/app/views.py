@@ -532,7 +532,7 @@ def ingest():
 					cloudsearch.add(item.id, {'id': item.id, 'title': item.title, 'creator': item.creator, 'source': item.source, 'institution': item.institution, 'institution_link': item.institution_link, 'license': item.license, 'description': item.description})
 					count += 1
 					
-					if count == 500:				
+					if count == CLOUDSEARCH_BATCH_SIZE:				
 						cloudsearch.commit()
 						cloudsearch.clear_sdf()
 						count = 0
