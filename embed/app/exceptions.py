@@ -1,5 +1,8 @@
 class NoItemInDb(Exception):
-    pass
+	pass
 
 class ErrorItemImport(Exception):
-    pass
+	pass
+
+class UnsupportedDbBackend(Exception):
+	pass

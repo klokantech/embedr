@@ -1,9 +1,9 @@
 import simplejson as json
-from flask.ext.redis import Redis
 
 from exceptions import NoItemInDb, ErrorItemImport
+from db_wrapper import DatabaseWrapper
 
-db = Redis()
+db = DatabaseWrapper()
 
 
 class Item():

@@ -36,11 +36,6 @@ url_regular = re.compile(ur'(?i)\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-
 CLOUDSEARCH_BATCH_SIZE = int(os.getenv('CLOUDSEARCH_BATCH_SIZE', 100))
 
 
-#@app.before_request
-def before_request():
-	g.db = app.extensions['redis'].redis
-
-
 #@app.route('/')
 def index():
 	return render_template('index.html')
@@ -163,7 +158,7 @@ def oEmbed():
 	p_url = urlparse(url)
 	
 	if p_url.scheme != 'http':
-		return 'the http scheme must be used', 404
+		return 'The http scheme must be used', 404
 	
 	if p_url.netloc != app.config['SERVER_NAME']:
 		return 'Only urls on the same server are allowed', 404

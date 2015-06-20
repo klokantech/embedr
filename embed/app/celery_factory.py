@@ -1,19 +1,16 @@
 import os
 
 from celery import Celery
-from flask import Flask
+import redis
 
 from models import db
 
 def celery_factory():
-	app = Flask(__name__)
+	REDIS_SERVER = os.getenv('REDIS_SERVER', 'localhost')
+	REDIS_PORT_NUMBER = 6379
+	
+	db.init_db(redis.StrictRedis(host=REDIS_SERVER, port=REDIS_PORT_NUMBER, db=0))
 
-	app.config.update(
-		REDIS_URL=os.getenv('REDIS_URL', 'redis://localhost')
-	)
-
-	db.init_app(app)
-
-	task_queue = Celery(__name__, broker=app.config['REDIS_URL'], include=['app.ingest'])
+	task_queue = Celery(__name__, broker='redis://%s' % REDIS_SERVER, include=['app.ingest'])
 
 	return task_queue

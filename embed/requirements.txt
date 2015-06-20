@@ -8,7 +8,7 @@ celery==3.1.18
 decorator==3.4.2
 filechunkio==1.6
 Flask==0.10.1
-Flask-Redis-Helper==1.0.0
+fakeredis==0.6.1
 html5lib==0.99999
 itsdangerous==0.24
 Jinja2==2.7.3

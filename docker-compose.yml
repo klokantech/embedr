@@ -28,7 +28,8 @@ embed:
   environment:
     - SERVER_NAME=embedhawk.klokantech.com
     - IIIF_SERVER=http://iiifhawk.klokantech.com
-    - REDIS_URL=redis://redis
+    - REDIS_SERVER=redis
+    - REDIS_PORT_NUMBER=6379
     - AWS_ACCESS_KEY_ID=
     - AWS_SECRET_ACCESS_KEY=
     - CLOUDSEARCH_REGION=eu-central-1
@@ -43,7 +44,8 @@ ingest:
     - ./embed:/usr/local/src/hawk/
   environment:
     - C_FORCE_ROOT=true
-    - REDIS_URL=redis://redis
+    - REDIS_SERVER=redis
+    - REDIS_PORT_NUMBER=6379
     - AWS_ACCESS_KEY_ID=
     - AWS_SECRET_ACCESS_KEY=
     - S3_CHUNK_SIZE=52428800
