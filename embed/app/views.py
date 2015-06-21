@@ -13,9 +13,9 @@ import bleach
 
 from iiif_manifest_factory import ManifestFactory
 from ingest import ingestQueue
-from models import Item, Batch, SubBatch
+from models import Item, Batch, Task
 from exceptions import NoItemInDb, ErrorItemImport
-from helper import prepareTileSources, trimFileExtension, getCloudSearch
+from helper import prepareTileSources, trimFileExtension
 
 
 ALLOWED_TAGS = ['b', 'blockquote', 'code', 'em', 'i', 'li', 'ol', 'strong', 'ul']
@@ -289,8 +289,8 @@ def ingest():
 			if batch:
 				item_sub_batches = {}
 				
-				for sub_batch_id in batch.sub_batches_ids:
-					sub_batch = SubBatch(sub_batch_id, batch.id)
+				for sub_batch_id in batch.tasks_ids:
+					task = Task(sub_batch_id, batch.id)
 					
 					if not item_sub_batches.has_key('%s@%s' % (sub_batch.item_id, sub_batch.url)) or (item_sub_batches.has_key('%s@%s' % (sub_batch.item_id, sub_batch.url)) and item_sub_batches['%s@%s' % (sub_batch.item_id, sub_batch.url)] != 'ok'):
 						item_sub_batches['%s@%s' % (sub_batch.item_id, sub_batch.url)] = sub_batch.status
@@ -325,19 +325,19 @@ def ingest():
 			abort(404)
 		
 		try:
-			data = json.loads(request.data)
+			batch_data = json.loads(request.data)
 		except:
 			abort(404)
 
-		if type(data) is not list or len(data) == 0:
+		if type(batch_data) is not list or len(batch_data) == 0:
 			abort(404)
 		
 		item_ids = []
 		errors = []
 		
 		# validation
-		for order in range(0, len(data)):
-			item = data[order]
+		for order in range(0, len(batch_data)):
+			item = batch_data[order]
 			
 			if type(item) is not dict:
 				errors.append("The item num. %s must be inside of '{}'" % order)
@@ -395,46 +395,36 @@ def ingest():
 				errors.append("The item num. %s doesn't have valid url '%s' in the License field" % (order, item['license']))
 			
 			item_ids.append(item['id'])
-			data[order] = item
+			batch_data[order] = item
 		
 		if errors:
 			return json.dumps({'errors': errors}), 404, {'Content-Type': 'application/json'}
 		
 		batch = Batch()
-		sub_batches_count = 0
-		cloudsearch_direct_items = []
 		
 		# processing
-		for item_data in data:
+		for item_data in batch_data:
 			unique_id = item_data['id']
-			b = {'id': unique_id} # batch for one item
-			item_url_ingested_count = 0
+
+			try:
+				old_item = Item(unique_id)
+			except NoItemInDb, ErrorItemImport:
+				old_item = None
 			
 			# delete a item
 			if item_data.has_key('status') and item_data['status'] == 'deleted':
-				try:
-					item = Item(unique_id)
-					item.lock = True
-					item.save()
+				# if there is no item --> nothing is going to be done
+				if old_item:
+					task_order = 0
 					
-					for url in item.url:
-						data = {'url': url, 'item_id': item.id, 'type': 'del'}
-						sub_batch = SubBatch(sub_batches_count, batch.id, data)
-						batch.sub_batches_ids.append(sub_batch.id)
-						sub_batches_count += 1
-						
-				except NoItemInDb, ErrorItemImport:
-					pass
-					
-				b['status'] = 'deleted'
-				
-				batch.items.append(b)
-				continue
-			
-			b['url'] = item_data['url']
+					for url in old_item.url:
+						data = {'url': url, 'item_id': unique_id, 'type': 'del', 'item_tasks_count': len(old_item.url)}
+						task = Task(batch.id, unique_id, task_order, data)
+						batch.tasks_ids.append(task.id)
+						task_order += 1
 			
 			# update or create a new item
-			try:
+			else:
 				# sanitising input
 				if item_data.has_key('title'):
 					item_data['title'] = bleach.clean(item_data['title'], tags=[], attributes=[], styles=[], strip=True)
@@ -444,103 +434,71 @@ def ingest():
 					item_data['institution'] = bleach.clean(item_data['institution'], tags=[], attributes=[], styles=[], strip=True)
 				if item_data.has_key('description'):
 					item_data['description'] = bleach.clean(item_data['description'], tags=ALLOWED_TAGS, attributes=[], styles=[], strip=True)
-
-				item = Item(unique_id, item_data)
-				item.lock = True
-			except NoItemInDb, ErrorItemImport:
-				abort(500)
-						
-			try:
-				old_item = Item(unique_id)
-			except NoItemInDb, ErrorItemImport:
-				old_item = None
 					
-			# already stored item
-			if old_item:
-				item.image_meta = old_item.image_meta
-				new_count = len(item.url)
-				old_count = len(old_item.url)
+				# already stored item
+				if old_item:
+					item_data['image_meta'] = old_item.image_meta
+					new_count = len(item_data['url'])
+					old_count = len(old_item.url)
+					update_list = []
 				
-				for order in range(0, max(new_count, old_count)):
-					if order < new_count and order < old_count:
-						# different url on the specific position --> overwrite
-						if item.url[order] != old_item.url[order]:
-							data = {'url': item.url[order], 'item_id': item.id, 'order': order, 'type': 'add'}
-							sub_batch = SubBatch(sub_batches_count, batch.id, data)
-							batch.sub_batches_ids.append(sub_batch.id)
-							item_url_ingested_count += 1
-							sub_batches_count += 1
+					for url_order in range(0, max(new_count, old_count)):
+						if url_order < new_count and url_order < old_count:
+							# different url on the specific position --> overwrite
+							if item_data['url'][url_order] != old_item.url[url_order]:
+								data = {'url': item_data['url'][url_order], 'item_id': unique_id, 'url_order': url_order, 'type': 'add'}
+								update_list.append(data)
+						else:
+							# end of both lists
+							if new_count == old_count:
+								break
+						
+							# a new url list is shorter than old one --> something to delelete
+							if url_order >= new_count:
+								data = {'url': old_item.url[url_order], 'item_id': unique_id, 'type': 'del'}
+								update_list.append(data)
+							
+							# a new url list is longer than old one --> something to add
+							elif url_order >= old_count:
+								data = {'url': item_data['url'][url_order], 'item_id': unique_id, 'url_order': url_order, 'type': 'add'}
+								update_list.append(data)
+					
+					# no change in url, change in other data possible
+					if not update_list:
+						data = {'item_id': unique_id, 'type': 'mod', 'item_tasks_count': 1}
+						task = Task(batch.id, unique_id, 0, data)
+						batch.tasks_ids.append(task.id)
 					else:
-						# end of both lists
-						if new_count == old_count:
-							break
+						task_order = 0
 						
-						# a new url list is shorter than old one --> something to delelete
-						if order >= new_count:
-							data = {'url': old_item.url[order], 'item_id': item.id, 'type': 'del'}
-							sub_batch = SubBatch(sub_batches_count, batch.id, data)
-							batch.sub_batches_ids.append(sub_batch.id)
-							item_url_ingested_count += 1
-							sub_batches_count += 1
-						# a new url list is longer than old one --> something to add
-						elif order >= old_count:
-							data = {'url': item.url[order], 'item_id': item.id, 'order': order, 'type': 'add'}
-							sub_batch = SubBatch(sub_batches_count, batch.id, data)
-							batch.sub_batches_ids.append(sub_batch.id)
-							item_url_ingested_count += 1
-							sub_batches_count += 1
+						for data in update_list:
+							data['item_tasks_count'] = len(update_list)
+							task = Task(batch.id, unique_id, task_order, data)
+							batch.tasks_ids.append(task.id)
+							task_order += 1
+						
+				# new item
+				else:
+					task_order = 0
 				
-				# only metadata are changed not images --> no ingest --> update changes to CloudSearch directly
-				if item_url_ingested_count == 0:
-					cloudsearch_direct_items.append(item)
+					for url in item_data['url']:
+						data = {'url': url, 'item_id': unique_id, 'url_order': task_order, 'item_data': item_data, 'type': 'add', 'item_tasks_count': len(item_data['url'])}
+						task = Task(batch.id, unique_id, task_order, data)
+						batch.tasks_ids.append(task.id)
+						task_order += 1
 					
-			# new item
-			else:
-				order = 0
-				
-				for url in item.url:
-					data = {'url': url, 'item_id': item.id, 'order': order}
-					sub_batch = SubBatch(sub_batches_count, batch.id, data)
-					batch.sub_batches_ids.append(sub_batch.id)
-					item_url_ingested_count += 1
-					sub_batches_count += 1
-					order += 1
-			
-			if item_url_ingested_count > 0:
-				b['status'] = 'pending'
-			else:
-				b['status'] = 'ok'
-				item.lock = False
-			
-			item.save()
-			
-			batch.items.append(b)
-
-		batch.sub_batches_count = sub_batches_count
+				# last task for specific item receives all item`s data
+				task.item_data = item_data
+				task.save()
+		
+			if old_item:
+				old_item.lock = True
+				old_item.save()
+		
+		batch.data = batch_data
 		batch.save()
 
-		if cloudsearch_direct_items:
-			try:
-				cloudsearch = getCloudSearch()
-				count = 0
-				
-				for item in cloudsearch_direct_items:
-					cloudsearch.add(item.id[:127], {'id': item.id, 'title': item.title, 'creator': item.creator, 'source': item.source, 'institution': item.institution, 'institution_link': item.institution_link, 'license': item.license, 'description': item.description})
-					count += 1
-					
-					if count >= CLOUDSEARCH_BATCH_SIZE:				
-						cloudsearch.commit()
-						cloudsearch.clear_sdf()
-						count = 0
-				
-				if count > 0:				
-					cloudsearch.commit()
-					cloudsearch.clear_sdf()
-			except:
-				#TODO do some log
-				pass
-	
-		for sub_batch_id in batch.sub_batches_ids:
-			ingestQueue.delay(batch.id, sub_batch_id)
+		for task_id in batch.tasks_ids:
+			ingestQueue.delay(batch.id, task_id)
 		
 	return json.JSONEncoder().encode({'batch_id': batch.id}), 200, {'Content-Type': 'application/json'}

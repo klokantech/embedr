@@ -12,7 +12,7 @@ from filechunkio import FileChunkIO
 import requests
 
 from app.task_queue import task_queue
-from models import Item, Batch, SubBatch
+from models import Item, Batch, Task
 from exceptions import NoItemInDb, ErrorItemImport
 from helper import getBucket, getCloudSearch
 
@@ -25,40 +25,52 @@ identify_output_regular = re.compile(r'''
 
 S3_CHUNK_SIZE = int(os.getenv('S3_CHUNK_SIZE', 52428800))
 S3_DEFAULT_FOLDER = os.getenv('S3_DEFAULT_FOLDER', '')
-MAX_SUB_BATCH_REPEAT = int(os.getenv('MAX_SUB_BATCH_REPEAT', 1))
-CLOUDSEARCH_BATCH_SIZE = int(os.getenv('CLOUDSEARCH_BATCH_SIZE', 100))
+MAX_TASK_REPEAT = int(os.getenv('MAX_TASK_REPEAT', 1))
 
 
 @task_queue.task
-def ingestQueue(batch_id, sub_batch_id):
+def ingestQueue(batch_id, item_id, task_id):
 	try:
-		batch = Batch(batch_id)
-		sub_batch = SubBatch(sub_batch_id, batch_id)
+		task = Task(batch_id, item_id, task_id)
 	except NoItemInDb, ErrorItemImport:
 		return -1
 	
 	try:
 		bucket = getBucket()
+		cloud_search = getCloudSearch()
 		
-		if sub_batch.type == 'del':
-			item = Item(sub_batch.item_id)
-			filename = item.image_meta[sub_batch.url]['filename']
+		if task.type == 'del':
+			try:
+				item = Item(item_id)
+				filename = item.image_meta[task.url]['filename']
 			
-			if filename:
-				bucket.delete_key(S3_DEFAULT_FOLDER + filename)
+				if filename:
+					bucket.delete_key(S3_DEFAULT_FOLDER + filename)
+			except NoItemInDb:
+				pass
+
+			task.status = 'deleted'
+			task.save()
+		
+		elif task.type == 'mod':
+			item = Item(item_id)
 			
-			sub_batch.status = 'deleted'
-			sub_batch.save()
+			cloudsearch.add(item.id[:127], {'id': item.id, 'title': item.title, 'creator': item.creator, 'source': item.source, 'institution': item.institution, 'institution_link': item.institution_link, 'license': item.license, 'description': item.description})
+			cloudsearch.commit()
+			cloudsearch.clear_sdf()
+			
+			task.status = 'ok'
+			task.save()
 			
 		else:
-			if sub_batch.order > 0:
-				filename = '/tmp/%s_%s' % (sub_batch.item_id, sub_batch.order)
-				destination = '%s/%s.jp2' % (sub_batch.item_id, sub_batch.order)
+			if task.url_order > 0:
+				filename = '/tmp/%s_%s' % (item_id, task.url_order)
+				destination = '%s/%s.jp2' % (item_id, task.url_order)
 			else:
-				filename = '/tmp/%s' % sub_batch.item_id
-				destination = '%s.jp2' % sub_batch.item_id
+				filename = '/tmp/%s' % item_id
+				destination = '%s.jp2' % item_id
 			
-			urllib.urlretrieve (sub_batch.url, filename)
+			urllib.urlretrieve (task.url, filename)
 		
 			if subprocess.check_output(['identify', '-format', '%m', filename]) != 'TIFF':
 				subprocess.call(['convert', '-compress', 'none', filename, '%s.tif' % filename])
@@ -85,142 +97,123 @@ def ingestQueue(batch_id, sub_batch_id):
 			test = identify_output_regular.search(subprocess.check_output(['identify', '-format', '{"width": %w, "height": %h}', '%s.tif' % filename]))
 		
 			if test:
-				sub_batch.image_meta = json.loads(test.group('size_json'))
-				sub_batch.image_meta['filename'] = destination
-				sub_batch.image_meta['order'] = sub_batch.order
+				task.image_meta = json.loads(test.group('size_json'))
+				task.image_meta['filename'] = destination
+				task.image_meta['order'] = task.url_order
 			else:
 				raise Exception
 		
 			os.remove('%s.jp2' % filename)
 			os.remove('%s.tif' % filename)
 
-			sub_batch.status = 'ok'
-			sub_batch.save()
+			task.status = 'ok'
+			task.save()
 
 	except:
-		sub_batch.attempts += 1
+		task.attempts += 1
 		
-		if sub_batch.attempts < MAX_SUB_BATCH_REPEAT:
-			sub_batch.save()
-			rand = (sub_batch.attempts * 60) + random.randint(sub_batch.attempts * 60, sub_batch.attempts * 60 * 2)
+		if task.attempts < MAX_TASK_REPEAT:
+			task.save()
+			rand = (task.attempts * 60) + random.randint(task.attempts * 60, task.attempts * 60 * 2)
 
-			return ingestQueue.apply_async(args=[batch.id, sub_batch.id], countdown=rand)
+			return ingestQueue.apply_async(args=[batch_id, task.id], countdown=rand)
 		else:
-			if sub_batch.type != 'del':
-				sub_batch.status = 'error'
+			if task.type != 'del':
+				task.status = 'error'
 			else:
-				sub_batch.status = 'deleted'
+				task.status = 'deleted'
 				
-			sub_batch.save()
+			task.save()
 
-	if batch.increment_finished_images() >= batch.sub_batches_count:
-		finalizeIngest(batch)
+	if task.increment_finished_item_tasks() >= task.item_tasks_count:
+		finalizeItem(batch_id, item_id, task.item_tasks_count)
 		
 	return
 
 
-def finalizeIngest(batch):
-	items = {}
-
+def finalizeItem(batch_id, item_id, item_tasks_count):
 	try:
 		cloudsearch = getCloudSearch()
 	except:
-		cloudsearch = None
+		cleanUnfinishedItem(item_id)
 	
-	for sub_batch_id in batch.sub_batches_ids:
-		sub_batch = SubBatch(sub_batch_id, batch.id)
-				
-		if items.has_key(sub_batch.item_id):
-			items[sub_batch.item_id].append((sub_batch.url, sub_batch.image_meta, sub_batch.status))
-		else:
-			items[sub_batch.item_id] = [(sub_batch.url, sub_batch.image_meta, sub_batch.status)]
-
-	count = 0
+	item_tasks = []
 	
-	for order in range(0, len(batch.items)):
-		item_id = batch.items[order]['id']
-		
-		if item_id in items.keys():
-			item = Item(item_id)
-		else:
-			continue
-		
-		if batch.items[order]['status'] == 'deleted':
-			item.delete()
-			
-			# cloudsearch item del
-			if cloudsearch is not None:
-				cloudsearch.delete(item.id[:127])
-		else:
-			item_status = 'ok'
-		
-			for data in items[item_id]:
-				url = data[0]
-				image_meta = data[1]
-				sub_batch_status = data[2]
-				
-				if sub_batch_status == 'pending' or sub_batch_status == 'error':
-					item_status = 'error'
-					
-					for i in range(0,len(item.url)):
-						if item.url[i] == url:
-							del item.url[i]
-							break
-				else:				
-					if sub_batch_status == 'deleted':
-						# if the image is being realy deleted not only being reshaffled
-						if not url in item.url:
-							item.image_meta.pop(url, None)
-					else:
-						item.image_meta[url] = image_meta
-		
-			batch.items[order]['status'] = item_status
-			
-			if item_status == 'error':
-				try:
-					bucket = getBucket()
-				
-					for url in item.url:
-						filename = item.image_meta[url]['filename']
-			
-						if filename:
-							bucket.delete_key(S3_DEFAULT_FOLDER + filename)
-				except:
-					pass
-					
-				item.delete()
+	for task_order in range(0, item_tasks_count):
+		item_tasks.append(Task(batch_id, item_id, task_order))
 	
-				# cloudsearch item del
-				if cloudsearch is not None:
-					cloudsearch.delete(item.id[:127])
-			else:
-				item.lock = False
-				item.save()
-				
-				# cloudsearch item add (or update)
-				if cloudsearch is not None:
-					cloudsearch.add(item.id[:127], {'id': item.id, 'title': item.title, 'creator': item.creator, 'source': item.source, 'institution': item.institution, 'institution_link': item.institution_link, 'license': item.license, 'description': item.description})
-		
-		count += 1
-		
-		if count >= CLOUDSEARCH_BATCH_SIZE and cloudsearch is not None:
+	# the last task has all item data
+	item_data = item_tasks[-1].item_data
+	
+	try:
+		old_item = Item(item_id)
+	except:
+		old_item = None
+	
+	if old_item:
+		if item_data.has_key('status') and item_data['status'] == 'deleted':
 			try:
+				cloudsearch.delete(old_item.id[:127])
 				cloudsearch.commit()
 				cloudsearch.clear_sdf()
+				old_item.delete()
 			except:
-				#TODO do some log
-				pass
-				
-			count = 0
+				cleanUnfinishedItem(old_item.id)
+			
+			return
+		else:
+			item_data['image_meta'] = old_item.image_meta
 	
-	batch.save()
+	for task in item_tasks:
+		if task.status == 'pending' or task.status == 'error':
+			if task.type != 'del':
+				cleanUnfinishedItem(old_item.id)
+				return
+			else:
+				task.status = 'ok'
+				task.save()
+		elif task.status == 'deleted':
+			item_data['image_meta'].pop(task.url, None)
+		elif task.status == 'ok':
+			item_data['image_meta'][task.url] = task.image_meta
 
-	if count > 0 and cloudsearch is not None:	
-		try:	
-			cloudsearch.commit()
-			cloudsearch.clear_sdf()
-		except:
-			#TODO do some log
-			pass
-		
+	item = Item(item_id, item_data)
+	
+	try:
+		cloudsearch.add(item.id[:127], {'id': item.id, 'title': item.title, 'creator': item.creator, 'source': item.source, 'institution': item.institution, 'institution_link': item.institution_link, 'license': item.license, 'description': item.description})
+		cloudsearch.commit()
+		cloudsearch.clear_sdf()
+	except:
+		cleanUnfinishedItem(old_item.id)
+	
+	item.save()
+	
+	return
+
+
+def cleanUnfinishedItem(item_id):
+	try:
+		item = Item(item_id)
+	except:
+		return
+	
+	try:
+		bucket = getBucket()
+				
+		for url in item.url:
+			filename = item.image_meta[url]['filename']
+			
+			if filename:
+				bucket.delete_key(S3_DEFAULT_FOLDER + filename)
+	except:
+		pass
+	
+	try:
+		cloudsearch = getCloudSearch()
+		cloudsearch.delete(item.id[:127])
+	except:
+		pass
+
+	item.delete()
+	
 	return

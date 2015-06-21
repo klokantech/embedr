@@ -26,7 +26,7 @@ class Item():
 			except:
 				raise ErrorItemImport('There is an error in the item`s model representation %s' % data)
 		else:
-			data = db.get('item@id:%s' % id)
+			data = db.get('item_id@%s' % id)
 			
 			if not data:
 				raise NoItemInDb('No item with specified id stored in db')
@@ -69,34 +69,29 @@ class Item():
 			else:
 				self.lock = False
 
-
 	def save(self):
 		if self.lock is True:
 			lock = 'True'
 		else:
 			lock = 'False'
 		
-		db.set('item@id:%s' % self.id, json.dumps({'url': self.url, 'title': self.title, 'creator': self.creator, 'institution': self.institution, 'institution_link': self.institution_link, 'license': self.license, 'description': self.description, 'image_meta': self.image_meta, 'lock': lock}))
+		db.set('item_id@%s' % self.id, json.dumps({'url': self.url, 'title': self.title, 'creator': self.creator, 'institution': self.institution, 'institution_link': self.institution_link, 'license': self.license, 'description': self.description, 'image_meta': self.image_meta, 'lock': lock}))
 		
-	
 	def delete(self):
-		db.delete('item@id:%s' % self.id)
+		db.delete('item_id@%s' % self.id)
 		
 		
 class Batch():
 	def __init__(self, id=None):
-		self.items = []
-		self.sub_batches_count = 0
-		self.finished_images = 0
-		self.sub_batches_ids = []
-		self.status = 'pending'
+		self.tasks_ids = []
+		self.data = []
 
 		if id is None:
 			self.id = db.incr('batch@id', 1)
 		else:
 			self.id = id
 			
-			data = db.get('batch@id:%s' % id)
+			data = db.get('batch@id@%s' % id)
 
 			if not data:
 				raise NoItemInDb('No batch with specified id stored in db')
@@ -104,58 +99,46 @@ class Batch():
 				try:
 					data = json.loads(data)
 					
-					if data.has_key('items'):
-						self.items = data['items']
+					if data.has_key('tasks_ids'):
+						self.tasks_ids = data['tasks_ids']
 						
-						if type(self.items) != list:
+						if type(self.tasks_ids) != list:
 							raise ErrorItemImport('There is an error in the batch`s model representation %s' % data)
-					if data.has_key('sub_batches_count'):
-						self.sub_batches_count = int(data['sub_batches_count'])
-					if data.has_key('sub_batches_ids'):
-						self.sub_batches_ids = data['sub_batches_ids']
+					
+					if data.has_key('data'):
+						self.data = data['data']
 						
-						if type(self.sub_batches_ids) != list:
+						if type(self.data) != list:
 							raise ErrorItemImport('There is an error in the batch`s model representation %s' % data)
-							
-					finished_images = db.get('batch@id:%s:finished_images' % self.id)
-					
-					if finished_images:
-						self.finished_images = int(finished_images)
-					
-					if data.has_key('status'):
-						self.status = data['status']
 											
 				except:
 					raise ErrorItemImport('There is an error in the batch`s model representation %s' % data)
-
 	
 	def save(self):
-		db.set('batch@id:%s' % self.id, json.dumps({'items': self.items, 'sub_batches_count': self.sub_batches_count, 'sub_batches_ids': self.sub_batches_ids}))
-	
-	
-	def increment_finished_images(self):
-		return db.incr('batch@id:%s:finished_images' % self.id, 1)
+		db.set('batch@id@%s' % self.id, json.dumps({'tasks_ids': self.tasks_ids, 'data': self.data}))
 
 
-class SubBatch():
-	def __init__(self, id, batch_id, data=None):
-		self.id = id
+class Task():
+	def __init__(self, batch_id, item_id, task_id, data=None):
+		self.task_id = task_id
 		self.batch_id = batch_id
+		self.item_id = item_id
 		self.status = 'pending'
 		self.url = ''
-		self.order = 0
-		self.item_id = ''
+		self.url_order = 0
 		self.image_meta = ''
 		self.attempts = 0
-		self.type = 'add'
+		self.type = 'mod'
+		self.item_data = {}
+		self.item_tasks_count = 0
 		
 		safe = True
 		
 		if data is None:
-			data = db.get('batch@id:%s:sub_batch:id:%s' % (self.batch_id, self.id))
+			data = db.get('batch@id@%s@item@id%s@task@id@%s' % (self.batch_id, self.item_id, self.task_id))
 
 			if not data:
-				raise NoItemInDb('No sub_batch with specified id stored in db')
+				raise NoItemInDb('No task with specified id stored in db')
 			else:
 				try:
 					data = json.loads(data)
@@ -168,20 +151,25 @@ class SubBatch():
 			self.status = data['status']
 		if data.has_key('url'):
 			self.url = data['url']
-		if data.has_key('order'):
-			self.order = data['order']
-		if data.has_key('item_id'):
-			self.item_id = data['item_id']
+		if data.has_key('url_order'):
+			self.url_order = data['url_order']
 		if data.has_key('image_meta'):
 			self.image_meta = data['image_meta']
 		if data.has_key('attempts'):
 			self.attempts = data['attempts']
 		if data.has_key('type'):
 			self.type = data['type']
+		if data.has_key('item_data'):
+			self.item_data = data['item_data']
+		if data.has_key('item_tasks_count'):
+			self.item_tasks_count = data['item_tasks_count']
 		
 		if safe:
 			self.save()
-
 	
 	def save(self):
-		db.set('batch@id:%s:sub_batch:id:%s' % (self.batch_id, self.id), json.dumps({'status': self.status, 'url': self.url, 'order': self.order, 'item_id': self.item_id, 'image_meta': self.image_meta, 'attempts': self.attempts, 'type': self.type}))
+		db.set('batch@id@%s@item@id%s@task@id@%s' % (self.batch_id, self.item_id, self.task_id), json.dumps({'status': self.status, 'url': self.url, 'url_order': self.url_order, 'image_meta': self.image_meta, 'attempts': self.attempts, 'type': self.type, 'item_data': self.item_data, 'item_tasks_count': self.item_tasks_count}))
+	
+	def increment_finished_item_tasks(self):
+		if self.item_id != '':
+			return db.incr('batch@id@%s@item@id%s' % (self.batch_id, self.item_id), 1)

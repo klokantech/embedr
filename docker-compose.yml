@@ -30,11 +30,6 @@ embed:
     - IIIF_SERVER=http://iiifhawk.klokantech.com
     - REDIS_SERVER=redis
     - REDIS_PORT_NUMBER=6379
-    - AWS_ACCESS_KEY_ID=
-    - AWS_SECRET_ACCESS_KEY=
-    - CLOUDSEARCH_REGION=eu-central-1
-    - CLOUDSEARCH_DOMAIN=hawk
-    - CLOUDSEARCH_BATCH_SIZE=500
 
 ingest:
   build: ./ingest
@@ -55,5 +50,4 @@ ingest:
     - MAX_SUB_BATCH_REPEAT=5
     - CLOUDSEARCH_REGION=eu-central-1
     - CLOUDSEARCH_DOMAIN=hawk
-    - CLOUDSEARCH_BATCH_SIZE=500
   command: celery --app=app.task_queue.task_queue worker --workdir=/usr/local/src/hawk/
