@@ -279,46 +279,59 @@ def ingest():
 	if request.method == 'GET':
 		batch_id = request.args.get('batch_id', None)
 
-		if batch_id is not None:
+		if batch_id is None:
+			abort(404)
 		
-			try:
-				batch = Batch(batch_id)
-			except:
-				batch = None
+		try:
+			batch = Batch(batch_id)
+		except:
+			abort(404)
 	
-			if batch:
-				item_sub_batches = {}
-				
-				for sub_batch_id in batch.tasks_ids:
-					task = Task(sub_batch_id, batch.id)
-					
-					if not item_sub_batches.has_key('%s@%s' % (sub_batch.item_id, sub_batch.url)) or (item_sub_batches.has_key('%s@%s' % (sub_batch.item_id, sub_batch.url)) and item_sub_batches['%s@%s' % (sub_batch.item_id, sub_batch.url)] != 'ok'):
-						item_sub_batches['%s@%s' % (sub_batch.item_id, sub_batch.url)] = sub_batch.status
-				
-				order = 0
 
-				for i in batch.items:
-					if i['status'] == 'deleted':
-						continue
-						
-					i['urls'] = []
-					
-					for url in i['url']:
-						# actualy ingested url
-						if item_sub_batches.has_key('%s@%s' % (i['id'], url)):
-							i['urls'].append(item_sub_batches['%s@%s' % (i['id'], url)])
-						# ingested url in past
-						else:
-							i['urls'].append('ok')
-					
-					i.pop('url', None)
-					
-					batch.items[order] = i
-					order += 1
-					
-				return json.JSONEncoder().encode(batch.items), 200, {'Content-Type': 'application/json'}
+		output = []
 		
-		abort(404)
+		for item in batch.data:
+			unique_id = item['id']
+			tmp = {'id': unique_id}
+			
+			if item.has_key('status') and item['status'] == 'deleted':
+				tmp['status'] = 'deleted'
+				output.append(tmp)
+				continue
+			
+			if batch.items.has_key(unique_id):
+				item_tasks = {}
+				
+				for task_id in batch.items[unique_id]:
+					task = Task(batch.id, unique_id, task_id)
+				
+					if not item_tasks.has_key(task.url) or (item_tasks.has_key(task.url) and item_tasks[task.url] != 'ok'):
+						item_tasks[task.url] = task.status
+				
+				tmp['urls'] = []
+				
+				for url in item['url']:
+					# actualy ingested url
+					if item_tasks.has_key(url):
+						tmp['urls'].append(item_tasks[url])
+					# ingested url in past
+					else:
+						tmp['urls'].append('ok')
+				
+				if 'error' in item_tasks.values():
+					tmp['status'] = 'error'
+				elif 'pending' in item_tasks.values():
+					tmp['status'] = 'pending'
+				else:
+					tmp['status'] = 'ok'
+				
+			else:
+				tmp['status'] = 'error'
+			
+			output.append(tmp)
+					
+		return json.JSONEncoder().encode(output), 200, {'Content-Type': 'application/json'}
+		
 	# new ingest
 	else:
 		if request.headers.get('Content-Type') != 'application/json':
@@ -401,6 +414,7 @@ def ingest():
 			return json.dumps({'errors': errors}), 404, {'Content-Type': 'application/json'}
 		
 		batch = Batch()
+		tasks = []
 		
 		# processing
 		for item_data in batch_data:
@@ -420,8 +434,10 @@ def ingest():
 					for url in old_item.url:
 						data = {'url': url, 'item_id': unique_id, 'type': 'del', 'item_tasks_count': len(old_item.url)}
 						task = Task(batch.id, unique_id, task_order, data)
-						batch.tasks_ids.append(task.id)
+						tasks.append(task)
 						task_order += 1
+				else:
+					continue
 			
 			# update or create a new item
 			else:
@@ -467,14 +483,14 @@ def ingest():
 					if not update_list:
 						data = {'item_id': unique_id, 'type': 'mod', 'item_tasks_count': 1}
 						task = Task(batch.id, unique_id, 0, data)
-						batch.tasks_ids.append(task.id)
+						tasks.append(task)
 					else:
 						task_order = 0
 						
 						for data in update_list:
 							data['item_tasks_count'] = len(update_list)
 							task = Task(batch.id, unique_id, task_order, data)
-							batch.tasks_ids.append(task.id)
+							tasks.append(task)
 							task_order += 1
 						
 				# new item
@@ -484,21 +500,29 @@ def ingest():
 					for url in item_data['url']:
 						data = {'url': url, 'item_id': unique_id, 'url_order': task_order, 'item_data': item_data, 'type': 'add', 'item_tasks_count': len(item_data['url'])}
 						task = Task(batch.id, unique_id, task_order, data)
-						batch.tasks_ids.append(task.id)
+						tasks.append(task)
 						task_order += 1
 					
-				# last task for specific item receives all item`s data
-				task.item_data = item_data
-				task.save()
+			# last task for specific item receives all item`s data
+			task.item_data = item_data
+			task.save()
 		
 			if old_item:
 				old_item.lock = True
 				old_item.save()
 		
 		batch.data = batch_data
+		
+		for task in tasks:
+			if not batch.items.has_key(task.item_id):
+				batch.items[task.item_id] = []
+
+			batch.items[task.item_id].append(task.task_id)
+				
+			
 		batch.save()
 
-		for task_id in batch.tasks_ids:
-			ingestQueue.delay(batch.id, task_id)
+		for task in tasks:
+			ingestQueue.delay(batch.id, task.item_id, task.task_id)
 		
 	return json.JSONEncoder().encode({'batch_id': batch.id}), 200, {'Content-Type': 'application/json'}

@@ -83,7 +83,7 @@ class Item():
 		
 class Batch():
 	def __init__(self, id=None):
-		self.tasks_ids = []
+		self.items = {}
 		self.data = []
 
 		if id is None:
@@ -99,10 +99,10 @@ class Batch():
 				try:
 					data = json.loads(data)
 					
-					if data.has_key('tasks_ids'):
-						self.tasks_ids = data['tasks_ids']
+					if data.has_key('items'):
+						self.items = data['items']
 						
-						if type(self.tasks_ids) != list:
+						if type(self.items) != dict:
 							raise ErrorItemImport('There is an error in the batch`s model representation %s' % data)
 					
 					if data.has_key('data'):
@@ -115,7 +115,7 @@ class Batch():
 					raise ErrorItemImport('There is an error in the batch`s model representation %s' % data)
 	
 	def save(self):
-		db.set('batch@id@%s' % self.id, json.dumps({'tasks_ids': self.tasks_ids, 'data': self.data}))
+		db.set('batch@id@%s' % self.id, json.dumps({'items': self.items, 'data': self.data}))
 
 
 class Task():

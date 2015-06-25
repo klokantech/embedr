@@ -18,7 +18,7 @@ class DatabaseWrapper():
 	def set(self, key, data):
 		return self.backend.set(key, data)
 	
-	def delete(self, delete):
+	def delete(self, key):
 		return self.backend.delete(key)
 		
 	def incr(self, key, default):
