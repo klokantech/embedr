@@ -14,7 +14,7 @@ def app_factory(db_backend=None):
 
 	app.config.update(
 		SERVER_NAME=os.getenv('SERVER_NAME', '127.0.0.1:5000'),
-		IIIF_SERVER=os.getenv('IIIF_SERVER', None),
+		IIIF_SERVER=os.getenv('IIIF_SERVER', '127.0.0.1'),
 		REDIS_SERVER=os.getenv('REDIS_SERVER', 'localhost'),
 		REDIS_PORT_NUMBER=int(os.getenv('REDIS_PORT_NUMBER', 6379)),
 		DEBUG=os.getenv('DEBUG', False),

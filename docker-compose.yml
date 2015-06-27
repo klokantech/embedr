@@ -26,8 +26,8 @@ embed:
   volumes:
     - ./embed:/usr/local/src/hawk/
   environment:
-    - SERVER_NAME=embedhawk.klokantech.com
-    - IIIF_SERVER=http://iiifhawk.klokantech.com
+    - SERVER_NAME=media.embedr.eu
+    - IIIF_SERVER=iiif.embedr.eu
     - REDIS_SERVER=redis
     - REDIS_PORT_NUMBER=6379
 

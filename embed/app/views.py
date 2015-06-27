@@ -97,7 +97,7 @@ def iiifMeta(unique_id):
 	fac = ManifestFactory()
 	fac.set_base_metadata_uri(app.config['SERVER_NAME'])
 	fac.set_base_metadata_dir(os.path.abspath(os.path.dirname(__file__)))
-	fac.set_base_image_uri(app.config['IIIF_SERVER'])
+	fac.set_base_image_uri('http://%s' % app.config['IIIF_SERVER'])
 	fac.set_iiif_image_info(2.0, 2)
 	
 	mf = fac.manifest(ident=url_for('iiifMeta', unique_id=unique_id, _external=True), label=item.title)
@@ -130,7 +130,7 @@ def iiifMeta(unique_id):
 		anno = cvs.annotation()
 
 		img = anno.image(ident='/%s/full/full/0/native.jpg' % (trimFileExtension(item.image_meta[url]['filename'])))
-		img.add_service(ident='%s/%s' % (app.config['IIIF_SERVER'], trimFileExtension(item.image_meta[url]['filename'])), context='http://iiif.io/api/image/2/context.json', profile='http://iiif.io/api/image/2/profiles/level2.json')
+		img.add_service(ident='http://%s/%s' % (app.config['IIIF_SERVER'], trimFileExtension(item.image_meta[url]['filename'])), context='http://iiif.io/api/image/2/context.json', profile='http://iiif.io/api/image/2/profiles/level2.json')
 		
 		img.width = width
 		img.height = height
@@ -259,7 +259,7 @@ def oEmbed():
 	data[u'version'] = '1.0'
 	data[u'type'] = 'photo'
 	data[u'title'] = item.title
-	data[u'url'] = '%s/%s/full/%s/0/native.jpg' % (app.config['IIIF_SERVER'], trimFileExtension(item.image_meta[item.url[order]]['filename']), size)
+	data[u'url'] = 'http://%s/%s/full/%s/0/native.jpg' % (app.config['IIIF_SERVER'], trimFileExtension(item.image_meta[item.url[order]]['filename']), size)
 	data[u'width'] = '%.0f' % width
 	data[u'height'] = '%.0f' % height
 	data[u'author_name'] = item.creator

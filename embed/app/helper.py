@@ -13,7 +13,7 @@ CLOUDSEARCH_DOMAIN = os.getenv('CLOUDSEARCH_DOMAIN', '')
 def prepareTileSources(item, url):
 	test=item.image_meta[url]['filename']
 	item.image_meta[url]['@context'] = 'http://iiif.io/api/image/2/context.json'
-	item.image_meta[url]['@id'] = '%s/%s' % (app.config['IIIF_SERVER'], trimFileExtension(item.image_meta[url]['filename']))
+	item.image_meta[url]['@id'] = 'http://%s/%s' % (app.config['IIIF_SERVER'], trimFileExtension(item.image_meta[url]['filename']))
 	item.image_meta[url]['protocol'] = 'http://iiif.io/api/image'
 	item.image_meta[url]['profile'] = ['http://iiif.io/api/image/2/level1.json', {'formats': ['jpg'], 'qualities': ['native', 'color', 'gray'], 'supports': ['regionByPct', 'sizeByForcedWh', 'sizeByWh', 'sizeAboveFull', 'rotationBy90s', 'mirroring', 'gray']}]
 		
