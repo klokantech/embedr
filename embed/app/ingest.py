@@ -7,6 +7,7 @@ import random
 import re
 import hashlib
 from datetime import datetime
+import traceback
 
 import simplejson as json
 import redis
@@ -29,6 +30,8 @@ S3_CHUNK_SIZE = int(os.getenv('S3_CHUNK_SIZE', 52428800))
 S3_DEFAULT_FOLDER = os.getenv('S3_DEFAULT_FOLDER', '')
 MAX_TASK_REPEAT = int(os.getenv('MAX_TASK_REPEAT', 1))
 URL_OPEN_TIMEOUT = int(os.getenv('URL_OPEN_TIMEOUT', 10))
+CLOUDSEARCH_ITEM_DOMAIN = os.getenv('CLOUDSEARCH_ITEM_DOMAIN', '')
+CLOUDSEARCH_BATCH_DOMAIN = os.getenv('CLOUDSEARCH_BATCH_DOMAIN', '')
 
 
 @task_queue.task
@@ -148,16 +151,15 @@ def finalizeItem(batch_id, item_id, item_tasks_count):
 			
 			while MAX_TASK_REPEAT > i:
 				try:
-					cloudsearch = getCloudSearch()
+					cloudsearch = getCloudSearch(CLOUDSEARCH_ITEM_DOMAIN)
 					cloudsearch.delete(hashlib.sha512(item_id).hexdigest()[:128])
 					cloudsearch.commit()
 					break
 				except:
 					if i < MAX_TASK_REPEAT:
-						rand = task.attempts + random.randint(task.attempts, task.attempts * 2)
+						i += 1
+						rand = i + random.randint(i, i * 2)
 						time.sleep(rand)
-					
-					i += 1
 					
 					continue
 			
@@ -200,16 +202,16 @@ def finalizeItem(batch_id, item_id, item_tasks_count):
 			
 		while MAX_TASK_REPEAT > i:
 			try:
-				cloudsearch = getCloudSearch()
+				cloudsearch = getCloudSearch(CLOUDSEARCH_ITEM_DOMAIN)
 				cloudsearch.add(hashlib.sha512(item_id).hexdigest()[:128], {'id': item.id, 'title': item.title, 'creator': item.creator, 'source': item.source, 'institution': item.institution, 'institution_link': item.institution_link, 'license': item.license, 'description': item.description, 'url': json.dumps(item.url), 'timestamp': item.timestamp, 'image_meta': json.dumps(ordered_image_meta)})
 				cloudsearch.commit()
 				break
 			except:
 				if i < MAX_TASK_REPEAT:
-					rand = task.attempts + random.randint(task.attempts, task.attempts * 2)
+					i += 1
+					rand = i + random.randint(i, i * 2)
 					time.sleep(rand)
-					
-				i += 1
+
 				continue
 			
 		if MAX_TASK_REPEAT > i:
@@ -222,6 +224,55 @@ def finalizeItem(batch_id, item_id, item_tasks_count):
 	else:
 		cleanErrItem(item_id, len(item_data['image_meta']))
 	
+	batch = Batch(batch_id)
+	
+	if batch.increment_finished_items() >= len(batch.items):
+		finalizeBatch(batch)
+	
+	return
+
+
+def finalizeBatch(batch):
+	i = 0
+	items = batch.items
+	
+	for item in batch.data:
+		unique_id = item['id']
+		tmp = []
+		item_tasks = {}
+				
+		for task_id in batch.items[unique_id]:
+			task = Task(batch.id, unique_id, task_id)
+				
+			if not item_tasks.has_key(task.url) or (item_tasks.has_key(task.url) and item_tasks[task.url] != 'ok'):
+				item_tasks[task.url] = task.status
+		
+		for url in item['url']:
+			# actualy ingested url
+			if item_tasks.has_key(url):
+				tmp.append(item_tasks[url])
+			# ingested url in past
+			else:
+				tmp.append('ok')
+		
+		items[unique_id] = tmp
+	
+	while MAX_TASK_REPEAT > i:
+		try:
+			cloudsearch = getCloudSearch(CLOUDSEARCH_BATCH_DOMAIN)
+			cloudsearch.add(hashlib.sha512(str(batch.id)).hexdigest()[:128], {'id': batch.id, 'items': json.dumps(items), 'data': json.dumps(batch.data)})
+			cloudsearch.commit()
+			break
+		except:
+			traceback.format_exc()
+			
+			if i < MAX_TASK_REPEAT:
+				i += 1
+				rand = i + random.randint(i, i * 2)
+				time.sleep(rand)
+			
+			continue
+
 	return
 
 
@@ -243,7 +294,7 @@ def cleanErrItem(item_id, count):
 		pass
 	
 	try:
-		cloudsearch = getCloudSearch()
+		cloudsearch = getCloudSearch(CLOUDSEARCH_ITEM_DOMAIN)
 		cloudsearch.delete(hashlib.sha512(item_id).hexdigest()[:128])
 		cloudsearch.commit()
 	except:

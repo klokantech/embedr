@@ -7,7 +7,6 @@ from flask import current_app as app
 S3_HOST = os.getenv('S3_HOST', '')
 S3_DEFAULT_BUCKET = os.getenv('S3_DEFAULT_BUCKET', '')
 CLOUDSEARCH_REGION = os.getenv('CLOUDSEARCH_REGION', '')
-CLOUDSEARCH_DOMAIN = os.getenv('CLOUDSEARCH_DOMAIN', '')
 
 
 def prepareTileSources(item, url, order):
@@ -41,5 +40,5 @@ def getBucket():
 	return s3.get_bucket(S3_DEFAULT_BUCKET)
 
 
-def getCloudSearch():
-	return boto.connect_cloudsearch2(region=CLOUDSEARCH_REGION, sign_request=True).lookup(CLOUDSEARCH_DOMAIN).get_document_service()
+def getCloudSearch(domain):
+	return boto.connect_cloudsearch2(region=CLOUDSEARCH_REGION, sign_request=True).lookup(domain).get_document_service()

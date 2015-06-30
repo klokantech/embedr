@@ -120,6 +120,8 @@ class Batch():
 	def save(self):
 		db.set('batch@id@%s' % self.id, json.dumps({'items': self.items, 'data': self.data}))
 
+	def increment_finished_items(self):
+		return db.incr('batch@id@%s@finished_items' % (self.id), 1)
 
 class Task():
 	def __init__(self, batch_id, item_id, task_id, data=None):

@@ -466,7 +466,6 @@ def ingest():
 					
 				# already stored item
 				if old_item:
-					item_data['image_meta'] = old_item.image_meta
 					new_count = len(item_data['url'])
 					old_count = len(old_item.url)
 					update_list = []
