@@ -3,7 +3,7 @@ redis:
   expose:
     - "6379"
   volumes:
-    - data:/data
+    - data/redis:/data
   command: redis-server --appendonly yes
 
 nginx:
@@ -37,6 +37,7 @@ ingest:
     - redis
   volumes:
     - ./embed:/usr/local/src/hawk/
+    - data/tmp:/tmp
   environment:
     - C_FORCE_ROOT=true
     - REDIS_SERVER=redis
