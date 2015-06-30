@@ -15,7 +15,7 @@ from iiif_manifest_factory import ManifestFactory
 from ingest import ingestQueue
 from models import Item, Batch, Task
 from exceptions import NoItemInDb, ErrorItemImport
-from helper import prepareTileSources, trimFileExtension
+from helper import prepareTileSources
 
 
 ALLOWED_TAGS = ['b', 'blockquote', 'code', 'em', 'i', 'li', 'ol', 'strong', 'ul']
@@ -71,13 +71,16 @@ def iFrame(unique_id, order=None):
 	tile_sources = []
 	
 	if order == -1:
+		count = 0
+		
 		for url in item.url:
-			tile_sources.append(prepareTileSources(item, url))
+			tile_sources.append(prepareTileSources(item, url, count))
+			count += 1
 		
 		order = 0
 	else:
 		url = item.url[order]
-		tile_sources.append(prepareTileSources(item, url))
+		tile_sources.append(prepareTileSources(item, url, order))
 		
 	return render_template('iframe_openseadragon_inline.html', item = item, tile_sources = tile_sources, order = order)
 
@@ -128,9 +131,14 @@ def iiifMeta(unique_id):
 		cvs.set_hw(height, width)
 	
 		anno = cvs.annotation()
+		
+		if count == 0:
+			filename = unique_id
+		else:
+			filename = '%s/%s' % (unique_id, count)
 
-		img = anno.image(ident='/%s/full/full/0/native.jpg' % (trimFileExtension(item.image_meta[url]['filename'])))
-		img.add_service(ident='http://%s/%s' % (app.config['IIIF_SERVER'], trimFileExtension(item.image_meta[url]['filename'])), context='http://iiif.io/api/image/2/context.json', profile='http://iiif.io/api/image/2/profiles/level2.json')
+		img = anno.image(ident='/%s/full/full/0/native.jpg' % filename)
+		img.add_service(ident='http://%s/%s' % (app.config['IIIF_SERVER'], filename), context='http://iiif.io/api/image/2/context.json', profile='http://iiif.io/api/image/2/profiles/level2.json')
 		
 		img.width = width
 		img.height = height
@@ -255,11 +263,16 @@ def oEmbed():
 			width = float(outheight) * ratio
 			height = outheight
 	
+	if order == 0:
+		filename = unique_id
+	else:
+		filename = '%s/%s' % (unique_id, order)
+	
 	data = {}
 	data[u'version'] = '1.0'
 	data[u'type'] = 'photo'
 	data[u'title'] = item.title
-	data[u'url'] = 'http://%s/%s/full/%s/0/native.jpg' % (app.config['IIIF_SERVER'], trimFileExtension(item.image_meta[item.url[order]]['filename']), size)
+	data[u'url'] = 'http://%s/%s/full/%s/0/native.jpg' % (app.config['IIIF_SERVER'], filename, size)
 	data[u'width'] = '%.0f' % width
 	data[u'height'] = '%.0f' % height
 	data[u'author_name'] = item.creator
@@ -432,8 +445,8 @@ def ingest():
 					task_order = 0
 					
 					for url in old_item.url:
-						data = {'url': url, 'item_id': unique_id, 'type': 'del', 'item_tasks_count': len(old_item.url)}
-						task = Task(batch.id, unique_id, task_order, data)
+						data = {'url': url, 'item_id': unique_id, 'item_tasks_count': len(old_item.url), 'url_order': task_order, 'type': 'del'}
+						task = Task(batch.id, unique_id, task_order, data, task_order)
 						tasks.append(task)
 						task_order += 1
 				else:
@@ -471,7 +484,7 @@ def ingest():
 						
 							# a new url list is shorter than old one --> something to delelete
 							if url_order >= new_count:
-								data = {'url': old_item.url[url_order], 'item_id': unique_id, 'type': 'del'}
+								data = {'url': old_item.url[url_order], 'item_id': unique_id, 'url_order': url_order, 'type': 'del'}
 								update_list.append(data)
 							
 							# a new url list is longer than old one --> something to add
@@ -498,7 +511,7 @@ def ingest():
 					task_order = 0
 				
 					for url in item_data['url']:
-						data = {'url': url, 'item_id': unique_id, 'url_order': task_order, 'item_data': item_data, 'type': 'add', 'item_tasks_count': len(item_data['url'])}
+						data = {'url': url, 'item_id': unique_id, 'url_order': task_order, 'item_data': item_data, 'item_tasks_count': len(item_data['url']), 'type': 'add'}
 						task = Task(batch.id, unique_id, task_order, data)
 						tasks.append(task)
 						task_order += 1

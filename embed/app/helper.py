@@ -10,10 +10,14 @@ CLOUDSEARCH_REGION = os.getenv('CLOUDSEARCH_REGION', '')
 CLOUDSEARCH_DOMAIN = os.getenv('CLOUDSEARCH_DOMAIN', '')
 
 
-def prepareTileSources(item, url):
-	test=item.image_meta[url]['filename']
+def prepareTileSources(item, url, order):
+	if order == 0:
+		filename = item.id
+	else:
+		filename = '%s/%s' % (item.id, order)
+		
 	item.image_meta[url]['@context'] = 'http://iiif.io/api/image/2/context.json'
-	item.image_meta[url]['@id'] = 'http://%s/%s' % (app.config['IIIF_SERVER'], trimFileExtension(item.image_meta[url]['filename']))
+	item.image_meta[url]['@id'] = 'http://%s/%s' % (app.config['IIIF_SERVER'], filename)
 	item.image_meta[url]['protocol'] = 'http://iiif.io/api/image'
 	item.image_meta[url]['profile'] = ['http://iiif.io/api/image/2/level1.json', {'formats': ['jpg'], 'qualities': ['native', 'color', 'gray'], 'supports': ['regionByPct', 'sizeByForcedWh', 'sizeByWh', 'sizeAboveFull', 'rotationBy90s', 'mirroring', 'gray']}]
 		
@@ -29,11 +33,6 @@ def prepareTileSources(item, url):
 	item.image_meta[url]['tiles'] = [{'width' : 256, 'height' : 256, 'scaleFactors': scaleFactors}]
 	
 	return item.image_meta[url]
-	
-
-def trimFileExtension(filename):
-	"""Trims '.jp2' from filename"""
-	return filename[:-4]
 
 
 def getBucket():
