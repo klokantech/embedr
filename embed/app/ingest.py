@@ -7,7 +7,6 @@ import random
 import re
 import hashlib
 from datetime import datetime
-import traceback
 
 import simplejson as json
 import redis
@@ -70,6 +69,11 @@ def ingestQueue(batch_id, item_id, task_id):
 			else:
 				filename = '/tmp/%s' % item_id
 				destination = '%s.jp2' % item_id
+			
+			if task.url_order == 1:
+				# folder creation
+				f = bucket.new_key('%s/' % item_id)
+				f.set_contents_from_string('')
 			
 			r = urllib2.urlopen(task.url, timeout=URL_OPEN_TIMEOUT)
 			f = open(filename, 'wb')
@@ -264,8 +268,6 @@ def finalizeBatch(batch):
 			cloudsearch.commit()
 			break
 		except:
-			traceback.format_exc()
-			
 			if i < MAX_TASK_REPEAT:
 				i += 1
 				rand = i + random.randint(i, i * 2)
@@ -283,13 +285,18 @@ def cleanErrItem(item_id, count):
 		
 		while count > i:
 			if i == 0:
-				filename = unique_id
+				filename = '%s.jp2' % item_id
 			else:
-				filename = '%s/%s' % (unique_id, i)
+				filename = '%s/%s.jp2' % (item_id, i)
 			
 			i += 1
 			
 			bucket.delete_key(S3_DEFAULT_FOLDER + filename)
+		
+		if count > 1:
+			filename = '%s/' % item_id
+			bucket.delete_key(S3_DEFAULT_FOLDER + filename)
+		
 	except:
 		pass
 	
