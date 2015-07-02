@@ -47,7 +47,7 @@ ingest:
     - S3_CHUNK_SIZE=52428800
     - S3_HOST=s3.eu-central-1.amazonaws.com
     - S3_DEFAULT_BUCKET=storage.hawk.bucket
-    - MAX_SUB_BATCH_REPEAT=5
+    - MAX_TASK_REPEAT=5
     - URL_OPEN_TIMEOUT=30
     - CLOUDSEARCH_REGION=eu-central-1
     - CLOUDSEARCH_ITEM_DOMAIN=hawk

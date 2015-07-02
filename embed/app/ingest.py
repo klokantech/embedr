@@ -123,7 +123,7 @@ def ingestQueue(batch_id, item_id, task_id):
 			task.save()
 			rand = (task.attempts * 60) + random.randint(task.attempts * 60, task.attempts * 60 * 2)
 
-			return ingestQueue.apply_async(args=[batch_id, task.id], countdown=rand)
+			return ingestQueue.apply_async(args=[batch_id, item_id, task_id], countdown=rand)
 		else:
 			task.status = 'error'
 			task.save()
