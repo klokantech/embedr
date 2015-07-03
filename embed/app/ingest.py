@@ -119,6 +119,16 @@ def ingestQueue(batch_id, item_id, task_id):
 	except:
 		task.attempts += 1
 		
+		try:
+			if os.path.isfile('%s' % filename):
+				os.remove('%s' % filename)
+			if os.path.isfile('%s.jp2' % filename):
+				os.remove('%s.jp2' % filename)
+			if os.path.isfile('%s.tif' % filename):
+				os.remove('%s.tif' % filename)
+		except:
+			pass
+		
 		if task.attempts < MAX_TASK_REPEAT:
 			task.save()
 			rand = (task.attempts * 60) + random.randint(task.attempts * 60, task.attempts * 60 * 2)

@@ -3,8 +3,8 @@ redis:
   expose:
     - "6379"
   volumes:
-    - data/redis:/data
-  command: redis-server --appendonly yes
+    - ./data/redis:/data
+  command: redis-server --appendonly yes --no-appendfsync-on-rewrite yes
 
 nginx:
   image: klokantech/nginx
@@ -37,7 +37,7 @@ ingest:
     - redis
   volumes:
     - ./embed:/usr/local/src/hawk/
-    - data/tmp:/tmp
+    - ./data/tmp:/tmp
   environment:
     - C_FORCE_ROOT=true
     - REDIS_SERVER=redis
@@ -48,8 +48,8 @@ ingest:
     - S3_HOST=s3.eu-central-1.amazonaws.com
     - S3_DEFAULT_BUCKET=storage.hawk.bucket
     - MAX_TASK_REPEAT=5
-    - URL_OPEN_TIMEOUT=30
+    - URL_OPEN_TIMEOUT=10
     - CLOUDSEARCH_REGION=eu-central-1
     - CLOUDSEARCH_ITEM_DOMAIN=hawk
     - CLOUDSEARCH_BATCH_DOMAIN=hawk-batch
-  command: bash -c "celery --app=app.task_queue.task_queue worker --workdir=/usr/local/src/hawk/ --autoscale=10,3 --hostname worker1.%h && celery --app=app.task_queue.task_queue worker --workdir=/usr/local/src/hawk/ --autoscale=10,3 --hostname worker2.%h && celery --app=app.task_queue.task_queue worker --workdir=/usr/local/src/hawk/ --autoscale=10,3 --hostname worker3.%h"
+  command: bash -c "celery --app=app.task_queue.task_queue worker -E -l info --workdir=/usr/local/src/hawk/ --autoscale=10,3 --hostname worker1.%h && celery --app=app.task_queue.task_queue worker -E -l info --workdir=/usr/local/src/hawk/ --autoscale=10,3 --hostname worker2.%h && celery --app=app.task_queue.task_queue worker -E -l info --workdir=/usr/local/src/hawk/ --autoscale=10,3 --hostname worker3.%h"
