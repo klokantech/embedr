@@ -1,0 +1,92 @@
+@font-face {
+  font-family: Raleway;
+  src: url(fonts/Raleway-Regular.ttf);
+  font-weight: normal; }
+@font-face {
+  font-family: Raleway;
+  src: url(fonts/Raleway-Bold.ttf);
+  font-weight: bold; }
+.button, .rounded__button, .button__embed, .button__zoom, .button__zoom--out, .button__metadata, .button__copy {
+  background-color: black;
+  height: 40px;
+  line-height: 40px;
+  text-align: center;
+  color: white;
+  font-weight: bold; }
+  .button a, .rounded__button a, .button__embed a, .button__zoom a, .button__zoom--out a, .button__metadata a, .button__copy a {
+    color: white;
+    font-weight: bold; }
+
+.rounded__button, .button__embed, .button__zoom, .button__zoom--out, .button__metadata {
+  width: 40px;
+  border-radius: 40px; }
+
+.button__embed {
+  position: absolute;
+  top: 5px;
+  left: 5px; }
+
+.button__zoom, .button__zoom--out {
+  position: absolute;
+  top: 5px;
+  left: 55px; }
+
+.button__zoom--out {
+  left: 105px; }
+
+.button__metadata {
+  position: absolute;
+  top: 5px;
+  left: 155px; }
+
+.button__copy {
+  padding: 4px; }
+
+.button__close {
+  float: right; }
+
+.detail__main {
+  position: absolute;
+  top: 50px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: white; }
+
+#detail__image {
+  position: fixed;
+  top: 50px;
+  left: 0;
+  right: 0;
+  bottom: 0; }
+  #detail__image iframe {
+    width: 100%;
+    height: 100%; }
+
+.embed__popup {
+  position: absolute;
+  left: 10px;
+  top: 50px;
+  width: 400px;
+  height: 500px;
+  padding: 20px;
+  background-color: white;
+  z-index: 30; }
+
+.embed__box {
+  width: 100%; }
+
+body {
+  font-family: 'Raleway';
+  background-color: white; }
+
+a {
+  text-decoration: none; }
+
+#title {
+  display: none; }
+
+#viewer {
+  display: none; }
+
+/*# sourceMappingURL=viewer.css.map */
