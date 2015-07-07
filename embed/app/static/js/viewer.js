@@ -2,7 +2,7 @@
 var CloseButton = React.createClass({displayName: "CloseButton",
   render: function() {
     return (
-      React.createElement("div", {className: "button__close", onClick: this.props.onClick}, React.createElement("img", {src: "/static/img/close.png"}))
+      React.createElement("div", {className: "button__close", onClick: this.props.onClick}, React.createElement("img", {src: "/images/close.png"}))
     )
   }
 })
@@ -14,7 +14,7 @@ var EmbedButton = React.createClass({displayName: "EmbedButton",
   render: function() {
     return (
       React.createElement("a", {className: "button__embed", href: "#", onClick: this.props.togglePopup}, 
-        React.createElement("img", {src: "/static/img/embed.png"})
+        React.createElement("img", {src: "/images/embed.png"})
       )
     )
   }
@@ -33,16 +33,12 @@ var EmbedPopup = React.createClass({displayName: "EmbedPopup",
     return (
       React.createElement("div", {className: "embed__popup"}, 
         React.createElement(CloseButton, {onClick: this.props.close}), 
-        React.createElement("strong", null, "Embed this image"), 
+        React.createElement("p", {className: "embed__title"}, "Embed this image"), 
         React.createElement("p", null, "Copy the HTML code below to your website or blog. ", React.createElement("a", {href: "#"}, "Click here for more information.")), 
         React.createElement("textarea", {className: "embed__box", rows: "6", id: "text-copy"}, 
           embedText
         ), 
-        React.createElement("a", {href: "#", className: "button__copy", id: "button-copy", "data-clipboard-target": "text-copy"}, "Copy"), 
-        React.createElement("div", null, 
-          React.createElement("label", null, "Show preview")
-        ), 
-        React.createElement(IIIFImage, {server: "http://iiif.embedr.eu", id: this.props.id, size: "400,150"})
+        React.createElement("a", {href: "#", className: "button__copy", id: "button-copy", "data-clipboard-target": "text-copy"}, "copy")
       )
     )
   }
@@ -77,7 +73,7 @@ var InformationButton = React.createClass({displayName: "InformationButton",
   render: function() {
     return (
       React.createElement("a", {className: "button__metadata", href: "#", onClick: this.props.togglePopup}, 
-        React.createElement("img", {src: "/static/img/metadata.png"})
+        React.createElement("img", {src: "/images/metadata.png"})
       )
     )
   }
@@ -127,12 +123,12 @@ var Viewer = React.createClass({displayName: "Viewer",
           React.createElement(EmbedButton, {togglePopup: this.toggleEmbedPopup}), 
           React.createElement("div", {className: "button__zoom"}, 
             React.createElement("a", {id: "zoom-in-button", href: "#"}, 
-              React.createElement("img", {src: "/static/img/zoom-in.png"})
+              React.createElement("img", {src: "/images/zoom-in.png"})
             )
           ), 
           React.createElement("div", {className: "button__zoom--out"}, 
             React.createElement("a", {id: "zoom-out-button", href: "#"}, 
-              React.createElement("img", {src: "/static/img/zoom-out.png"})
+              React.createElement("img", {src: "/images/zoom-out.png"})
             )
           ), 
           React.createElement(InformationButton, {togglePopup: this.toggleInfoPopup})

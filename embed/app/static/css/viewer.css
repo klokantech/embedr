@@ -6,13 +6,22 @@
   font-family: Raleway;
   src: url(fonts/Raleway-Bold.ttf);
   font-weight: bold; }
+@font-face {
+  font-family: Raleway;
+  src: url(fonts/Raleway-ExtraBold.ttf);
+  font-weight: bolder; }
+@font-face {
+  font-family: Ubuntu;
+  src: url(fonts/Ubuntu-R.ttf);
+  font-weight: normal; }
 .button, .rounded__button, .button__embed, .button__zoom, .button__zoom--out, .button__metadata, .button__copy {
   background-color: black;
   height: 40px;
   line-height: 40px;
   text-align: center;
   color: white;
-  font-weight: bold; }
+  font-weight: bold;
+  text-decoration: none; }
   .button a, .rounded__button a, .button__embed a, .button__zoom a, .button__zoom--out a, .button__metadata a, .button__copy a {
     color: white;
     font-weight: bold; }
@@ -40,22 +49,20 @@
   left: 155px; }
 
 .button__copy {
-  padding: 4px; }
+  padding-top: 4px;
+  padding-bottom: 4px;
+  padding-left: 8px;
+  padding-right: 8px; }
 
 .button__close {
-  float: right; }
-
-.detail__main {
   position: absolute;
-  top: 50px;
-  left: 0;
   right: 0;
-  bottom: 0;
-  background-color: white; }
+  top: 0;
+  line-height: 0; }
 
 #detail__image {
   position: fixed;
-  top: 50px;
+  top: 41px;
   left: 0;
   right: 0;
   bottom: 0; }
@@ -68,10 +75,17 @@
   left: 10px;
   top: 50px;
   width: 400px;
-  height: 500px;
   padding: 20px;
   background-color: white;
-  z-index: 30; }
+  z-index: 30;
+  font-weight: normal;
+  font-family: Ubuntu;
+  font-size: 24px;
+  line-height: 30px; }
+
+.embed__title {
+  font-family: Raleway;
+  font-weight: bolder; }
 
 .embed__box {
   width: 100%; }
