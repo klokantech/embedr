@@ -1,9 +1,20 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+var CloseButton = React.createClass({displayName: "CloseButton",
+  render: function() {
+    return (
+      React.createElement("div", {className: "button__close", onClick: this.props.onClick}, React.createElement("img", {src: "/static/img/close.png"}))
+    )
+  }
+})
+
+module.exports = CloseButton;
+
+},{}],2:[function(require,module,exports){
 var EmbedButton = React.createClass({displayName: "EmbedButton",
   render: function() {
     return (
       React.createElement("a", {className: "button__embed", href: "#", onClick: this.props.togglePopup}, 
-        React.createElement("img", {src: "/images/embed.png"})
+        React.createElement("img", {src: "/static/img/embed.png"})
       )
     )
   }
@@ -11,7 +22,8 @@ var EmbedButton = React.createClass({displayName: "EmbedButton",
 
 module.exports = EmbedButton;
 
-},{}],2:[function(require,module,exports){
+},{}],3:[function(require,module,exports){
+var CloseButton = require('./close_button.jsx')
 var IIIFImage = require('./iiif_image.jsx');
 
 var EmbedPopup = React.createClass({displayName: "EmbedPopup",
@@ -20,7 +32,7 @@ var EmbedPopup = React.createClass({displayName: "EmbedPopup",
     var embedText = "<iframe src=\"" + embedLink + "\"></iframe>"
     return (
       React.createElement("div", {className: "embed__popup"}, 
-        React.createElement("div", {className: "button__close", onClick: this.props.close}, "X"), 
+        React.createElement(CloseButton, {onClick: this.props.close}), 
         React.createElement("strong", null, "Embed this image"), 
         React.createElement("p", null, "Copy the HTML code below to your website or blog. ", React.createElement("a", {href: "#"}, "Click here for more information.")), 
         React.createElement("textarea", {className: "embed__box", rows: "6", id: "text-copy"}, 
@@ -38,7 +50,7 @@ var EmbedPopup = React.createClass({displayName: "EmbedPopup",
 
 module.exports = EmbedPopup;
 
-},{"./iiif_image.jsx":3}],3:[function(require,module,exports){
+},{"./close_button.jsx":1,"./iiif_image.jsx":4}],4:[function(require,module,exports){
 var IIIFImage = React.createClass({displayName: "IIIFImage",
   makeSource: function() {
     var server = this.props.server;
@@ -60,12 +72,12 @@ var IIIFImage = React.createClass({displayName: "IIIFImage",
 
 module.exports = IIIFImage;
 
-},{}],4:[function(require,module,exports){
+},{}],5:[function(require,module,exports){
 var InformationButton = React.createClass({displayName: "InformationButton",
   render: function() {
     return (
       React.createElement("a", {className: "button__metadata", href: "#", onClick: this.props.togglePopup}, 
-        React.createElement("img", {src: "/images/metadata.png"})
+        React.createElement("img", {src: "/static/img/metadata.png"})
       )
     )
   }
@@ -73,7 +85,7 @@ var InformationButton = React.createClass({displayName: "InformationButton",
 
 module.exports = InformationButton;
 
-},{}],5:[function(require,module,exports){
+},{}],6:[function(require,module,exports){
 var InformationPopup = React.createClass({displayName: "InformationPopup",
   render: function() {
     return (
@@ -85,7 +97,7 @@ var InformationPopup = React.createClass({displayName: "InformationPopup",
 
 module.exports = InformationPopup;
 
-},{}],6:[function(require,module,exports){
+},{}],7:[function(require,module,exports){
 var EmbedButton = require('./embed_button.jsx')
 var EmbedPopup = require('./embed_popup.jsx')
 var InformationButton = require('./information_button.jsx')
@@ -115,12 +127,12 @@ var Viewer = React.createClass({displayName: "Viewer",
           React.createElement(EmbedButton, {togglePopup: this.toggleEmbedPopup}), 
           React.createElement("div", {className: "button__zoom"}, 
             React.createElement("a", {id: "zoom-in-button", href: "#"}, 
-              React.createElement("img", {src: "/images/zoom-in.png"})
+              React.createElement("img", {src: "/static/img/zoom-in.png"})
             )
           ), 
           React.createElement("div", {className: "button__zoom--out"}, 
             React.createElement("a", {id: "zoom-out-button", href: "#"}, 
-              React.createElement("img", {src: "/images/zoom-out.png"})
+              React.createElement("img", {src: "/static/img/zoom-out.png"})
             )
           ), 
           React.createElement(InformationButton, {togglePopup: this.toggleInfoPopup})
@@ -134,7 +146,7 @@ var Viewer = React.createClass({displayName: "Viewer",
 
 module.exports = Viewer;
 
-},{"./embed_button.jsx":1,"./embed_popup.jsx":2,"./information_button.jsx":4,"./information_popup.jsx":5}],7:[function(require,module,exports){
+},{"./embed_button.jsx":2,"./embed_popup.jsx":3,"./information_button.jsx":5,"./information_popup.jsx":6}],8:[function(require,module,exports){
 var Viewer = require('./components/viewer.jsx')
 //Export to window so it can be called in a Flask template.
 window.Viewer = Viewer;
@@ -149,4 +161,4 @@ $(function(){
   });
 });
 
-},{"./components/viewer.jsx":6}]},{},[7]);
+},{"./components/viewer.jsx":7}]},{},[8]);
