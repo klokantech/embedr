@@ -82,22 +82,9 @@ var InformationButton = React.createClass({displayName: "InformationButton",
 module.exports = InformationButton;
 
 },{}],6:[function(require,module,exports){
-var InformationPopup = React.createClass({displayName: "InformationPopup",
-  render: function() {
-    return (
-      React.createElement("div", {className: "metadata__popup"}
-      )
-    )
-  }
-});
-
-module.exports = InformationPopup;
-
-},{}],7:[function(require,module,exports){
 var EmbedButton = require('./embed_button.jsx')
 var EmbedPopup = require('./embed_popup.jsx')
 var InformationButton = require('./information_button.jsx')
-var InformationPopup = require('./information_popup.jsx')
 
 var Viewer = React.createClass({displayName: "Viewer",
   getInitialState: function() {
@@ -109,12 +96,6 @@ var Viewer = React.createClass({displayName: "Viewer",
   toggleEmbedPopup: function(e) {
     e.preventDefault();
     this.setState({showEmbedPopup: !this.state.showEmbedPopup});
-  },
-  toggleInfoPopup: function(e) {
-    e.preventDefault();
-    // Leaving this is in case we do switch to a React popup.
-    // this.setState({showInfoPopup: !this.state.showInfoPopup});
-    $('#title').toggle();
   },
   render: function() {
     return (
@@ -130,11 +111,9 @@ var Viewer = React.createClass({displayName: "Viewer",
             React.createElement("a", {id: "zoom-out-button", href: "#"}, 
               React.createElement("img", {src: "/images/zoom-out.png"})
             )
-          ), 
-          React.createElement(InformationButton, {togglePopup: this.toggleInfoPopup})
+          )
         ), 
-         this.state.showEmbedPopup ? React.createElement(EmbedPopup, {id: this.props.id, close: this.toggleEmbedPopup}) : null, 
-         this.state.showInfoPopup ? React.createElement(InformationPopup, {id: this.props.id, close: this.toggleInfoPopup}) : null
+         this.state.showEmbedPopup ? React.createElement(EmbedPopup, {id: this.props.id, close: this.toggleEmbedPopup}) : null
       )
     )
   }
@@ -142,7 +121,7 @@ var Viewer = React.createClass({displayName: "Viewer",
 
 module.exports = Viewer;
 
-},{"./embed_button.jsx":2,"./embed_popup.jsx":3,"./information_button.jsx":5,"./information_popup.jsx":6}],8:[function(require,module,exports){
+},{"./embed_button.jsx":2,"./embed_popup.jsx":3,"./information_button.jsx":5}],7:[function(require,module,exports){
 var Viewer = require('./components/viewer.jsx')
 //Export to window so it can be called in a Flask template.
 window.Viewer = Viewer;
@@ -157,4 +136,4 @@ $(function(){
   });
 });
 
-},{"./components/viewer.jsx":7}]},{},[8]);
+},{"./components/viewer.jsx":6}]},{},[7]);
