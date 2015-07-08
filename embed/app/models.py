@@ -78,7 +78,7 @@ class Item():
 		else:
 			lock = 'False'
 		
-		db.set('item_id@%s' % self.id, json.dumps({'url': self.url, 'title': self.title, 'creator': self.creator, 'institution': self.institution, 'institution_link': self.institution_link, 'license': self.license, 'description': self.description, 'image_meta': self.image_meta, 'lock': lock, 'timestamp': self.timestamp}))
+		db.set('item_id@%s' % self.id, json.dumps({'url': self.url, 'title': self.title, 'creator': self.creator, 'source': self.source, 'institution': self.institution, 'institution_link': self.institution_link, 'license': self.license, 'description': self.description, 'image_meta': self.image_meta, 'lock': lock, 'timestamp': self.timestamp}))
 		
 	def delete(self):
 		db.delete('item_id@%s' % self.id)
