@@ -25,9 +25,9 @@
     <div id="map"></div>
     <div id="title">
       {% if item.title %}
-        {{ item.title }}
+        '{{ item.title }}'
       {% else %}
-          untitled
+          'untitled'
       {% endif %}
       |
       {% if item.creator %}
@@ -42,10 +42,11 @@
           {{ item.institution }}
       {% endif %}
       |
-      <img src=http://mirrors.creativecommons.org/presskit/icons/cc.png />
       {% if "publicdomain" in item.license %}
+          <img src="/static/img/pd.png" />
           <a href="{{ item.license }}">No rights reserved.</a>
       {% else %}
+          <img src="/static/img/cc.png" />
           <a href="{{ item.license }}">Some rights reserved.</a>
       {% endif %}
     </div>
