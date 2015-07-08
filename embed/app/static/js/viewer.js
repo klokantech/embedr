@@ -2,7 +2,7 @@
 var CloseButton = React.createClass({displayName: "CloseButton",
   render: function() {
     return (
-      React.createElement("div", {className: "button__close", onClick: this.props.onClick}, React.createElement("img", {src: "/images/close.png"}))
+      React.createElement("div", {className: "button__close", onClick: this.props.onClick}, React.createElement("img", {src: "/static/img/close.png"}))
     )
   }
 })
@@ -14,7 +14,7 @@ var EmbedButton = React.createClass({displayName: "EmbedButton",
   render: function() {
     return (
       React.createElement("a", {className: "button__embed", href: "#", onClick: this.props.togglePopup}, 
-        React.createElement("img", {src: "/images/embed.png"})
+        React.createElement("img", {src: "/static/img/embed.png"})
       )
     )
   }
@@ -73,7 +73,7 @@ var InformationButton = React.createClass({displayName: "InformationButton",
   render: function() {
     return (
       React.createElement("a", {className: "button__metadata", href: "#", onClick: this.props.togglePopup}, 
-        React.createElement("img", {src: "/images/metadata.png"})
+        React.createElement("img", {src: "/static/img/metadata.png"})
       )
     )
   }
@@ -104,12 +104,12 @@ var Viewer = React.createClass({displayName: "Viewer",
           React.createElement(EmbedButton, {togglePopup: this.toggleEmbedPopup}), 
           React.createElement("div", {className: "button__zoom"}, 
             React.createElement("a", {id: "zoom-in-button", href: "#"}, 
-              React.createElement("img", {src: "/images/zoom-in.png"})
+              React.createElement("img", {src: "/static/img/zoom-in.png"})
             )
           ), 
           React.createElement("div", {className: "button__zoom--out"}, 
             React.createElement("a", {id: "zoom-out-button", href: "#"}, 
-              React.createElement("img", {src: "/images/zoom-out.png"})
+              React.createElement("img", {src: "/static/img/zoom-out.png"})
             )
           )
         ), 
