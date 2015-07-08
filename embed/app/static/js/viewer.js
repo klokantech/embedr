@@ -2,7 +2,7 @@
 var CloseButton = React.createClass({displayName: "CloseButton",
   render: function() {
     return (
-      React.createElement("div", {className: "button__close", onClick: this.props.onClick}, React.createElement("img", {src: "/static/img/close.png"}))
+      React.createElement("div", {className: "button__close", onClick: this.props.onClick}, React.createElement("img", {src: "/images/close.png"}))
     )
   }
 })
@@ -14,7 +14,7 @@ var EmbedButton = React.createClass({displayName: "EmbedButton",
   render: function() {
     return (
       React.createElement("a", {className: "button__embed", href: "#", onClick: this.props.togglePopup}, 
-        React.createElement("img", {src: "/static/img/embed.png"})
+        React.createElement("img", {src: "/images/embed.png"})
       )
     )
   }
@@ -33,16 +33,12 @@ var EmbedPopup = React.createClass({displayName: "EmbedPopup",
     return (
       React.createElement("div", {className: "embed__popup"}, 
         React.createElement(CloseButton, {onClick: this.props.close}), 
-        React.createElement("strong", null, "Embed this image"), 
+        React.createElement("p", {className: "embed__title"}, "Embed this image"), 
         React.createElement("p", null, "Copy the HTML code below to your website or blog. ", React.createElement("a", {href: "#"}, "Click here for more information.")), 
         React.createElement("textarea", {className: "embed__box", rows: "6", id: "text-copy"}, 
           embedText
         ), 
-        React.createElement("a", {href: "#", className: "button__copy", id: "button-copy", "data-clipboard-target": "text-copy"}, "Copy"), 
-        React.createElement("div", null, 
-          React.createElement("label", null, "Show preview")
-        ), 
-        React.createElement(IIIFImage, {server: "http://iiif.embedr.eu", id: this.props.id, size: "400,150"})
+        React.createElement("a", {href: "#", className: "button__copy", id: "button-copy", "data-clipboard-target": "text-copy"}, "copy")
       )
     )
   }
@@ -77,7 +73,7 @@ var InformationButton = React.createClass({displayName: "InformationButton",
   render: function() {
     return (
       React.createElement("a", {className: "button__metadata", href: "#", onClick: this.props.togglePopup}, 
-        React.createElement("img", {src: "/static/img/metadata.png"})
+        React.createElement("img", {src: "/images/metadata.png"})
       )
     )
   }
@@ -86,22 +82,9 @@ var InformationButton = React.createClass({displayName: "InformationButton",
 module.exports = InformationButton;
 
 },{}],6:[function(require,module,exports){
-var InformationPopup = React.createClass({displayName: "InformationPopup",
-  render: function() {
-    return (
-      React.createElement("div", {className: "metadata__popup"}
-      )
-    )
-  }
-});
-
-module.exports = InformationPopup;
-
-},{}],7:[function(require,module,exports){
 var EmbedButton = require('./embed_button.jsx')
 var EmbedPopup = require('./embed_popup.jsx')
 var InformationButton = require('./information_button.jsx')
-var InformationPopup = require('./information_popup.jsx')
 
 var Viewer = React.createClass({displayName: "Viewer",
   getInitialState: function() {
@@ -114,12 +97,6 @@ var Viewer = React.createClass({displayName: "Viewer",
     e.preventDefault();
     this.setState({showEmbedPopup: !this.state.showEmbedPopup});
   },
-  toggleInfoPopup: function(e) {
-    e.preventDefault();
-    // Leaving this is in case we do switch to a React popup.
-    // this.setState({showInfoPopup: !this.state.showInfoPopup});
-    $('#title').toggle();
-  },
   render: function() {
     return (
       React.createElement("div", {className: "viewer"}, 
@@ -127,18 +104,16 @@ var Viewer = React.createClass({displayName: "Viewer",
           React.createElement(EmbedButton, {togglePopup: this.toggleEmbedPopup}), 
           React.createElement("div", {className: "button__zoom"}, 
             React.createElement("a", {id: "zoom-in-button", href: "#"}, 
-              React.createElement("img", {src: "/static/img/zoom-in.png"})
+              React.createElement("img", {src: "/images/zoom-in.png"})
             )
           ), 
           React.createElement("div", {className: "button__zoom--out"}, 
             React.createElement("a", {id: "zoom-out-button", href: "#"}, 
-              React.createElement("img", {src: "/static/img/zoom-out.png"})
+              React.createElement("img", {src: "/images/zoom-out.png"})
             )
-          ), 
-          React.createElement(InformationButton, {togglePopup: this.toggleInfoPopup})
+          )
         ), 
-         this.state.showEmbedPopup ? React.createElement(EmbedPopup, {id: this.props.id, close: this.toggleEmbedPopup}) : null, 
-         this.state.showInfoPopup ? React.createElement(InformationPopup, {id: this.props.id, close: this.toggleInfoPopup}) : null
+         this.state.showEmbedPopup ? React.createElement(EmbedPopup, {id: this.props.id, close: this.toggleEmbedPopup}) : null
       )
     )
   }
@@ -146,7 +121,7 @@ var Viewer = React.createClass({displayName: "Viewer",
 
 module.exports = Viewer;
 
-},{"./embed_button.jsx":2,"./embed_popup.jsx":3,"./information_button.jsx":5,"./information_popup.jsx":6}],8:[function(require,module,exports){
+},{"./embed_button.jsx":2,"./embed_popup.jsx":3,"./information_button.jsx":5}],7:[function(require,module,exports){
 var Viewer = require('./components/viewer.jsx')
 //Export to window so it can be called in a Flask template.
 window.Viewer = Viewer;
@@ -161,4 +136,4 @@ $(function(){
   });
 });
 
-},{"./components/viewer.jsx":7}]},{},[8]);
+},{"./components/viewer.jsx":6}]},{},[7]);
