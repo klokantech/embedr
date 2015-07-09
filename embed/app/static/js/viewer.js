@@ -27,9 +27,19 @@ var CloseButton = require('./close_button.jsx')
 var IIIFImage = require('./iiif_image.jsx');
 
 var EmbedPopup = React.createClass({displayName: "EmbedPopup",
+  getProportion: function() {
+    if (this.props.result) {
+      var meta = JSON.parse(this.props.result.image_meta)[0];
+      return (meta.height/meta.width*100)+"%";
+    } else {
+      return (this.props.height/this.props.width*100)+"%";
+    }
+  },
   render: function() {
-    var embedLink = "http://media.embedr.eu/" + this.props.id;
-    var embedText = "<iframe src=\"" + embedLink + "\"></iframe>"
+    var id = this.props.id ? this.props.id : this.props.result.id;
+    var proportion = this.getProportion();
+    var embedLink = "http://media.embedr.eu/" + id;
+    var embedText = '<div class="embdr_wrapper" style="position: relative; padding-bottom: '+proportion+'; padding-top: 0px; height: 0;"><iframe style="border: 0; position: absolute; top: 0; left: 0; width: 100%; height: 100%;" src="' + embedLink + '">Your browser doesn\'t support iFrames.</iframe></div>'
     return (
       React.createElement("div", {className: "embed__popup"}, 
         React.createElement(CloseButton, {onClick: this.props.close}), 
@@ -37,6 +47,9 @@ var EmbedPopup = React.createClass({displayName: "EmbedPopup",
         React.createElement("p", null, "Copy the HTML code below to your website or blog. ", React.createElement("a", {href: "#"}, "Click here for more information.")), 
         React.createElement("textarea", {className: "embed__box", rows: "6", id: "text-copy"}, 
           embedText
+        ), 
+        React.createElement("textarea", {className: "embed__box", rows: "3", id: "text-copy"}, 
+          embedLink
         ), 
         React.createElement("a", {href: "#", className: "button__copy", id: "button-copy", "data-clipboard-target": "text-copy"}, "copy")
       )
@@ -87,10 +100,21 @@ var EmbedPopup = require('./embed_popup.jsx')
 var InformationButton = require('./information_button.jsx')
 
 var Viewer = React.createClass({displayName: "Viewer",
+  componentDidMount: function() {
+    var apiUrl = "http://iiif.embedr.eu/"+this.props.id+"/info.json";
+    $.getJSON(apiUrl, function(res) {
+      console.log(res);
+      this.setState({
+        height: res.height,
+        width: res.width
+      });
+    }.bind(this));
+  },
   getInitialState: function() {
     return {
       showEmbedPopup: false,
-      showInfoPopup: false
+      height: 100,
+      width: 100
     };
   },
   toggleEmbedPopup: function(e) {
@@ -113,7 +137,7 @@ var Viewer = React.createClass({displayName: "Viewer",
             )
           )
         ), 
-         this.state.showEmbedPopup ? React.createElement(EmbedPopup, {id: this.props.id, close: this.toggleEmbedPopup}) : null
+         this.state.showEmbedPopup ? React.createElement(EmbedPopup, {width: this.state.width, height: this.state.height, id: this.props.id, close: this.toggleEmbedPopup}) : null
       )
     )
   }
