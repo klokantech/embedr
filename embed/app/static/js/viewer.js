@@ -103,7 +103,6 @@ var Viewer = React.createClass({displayName: "Viewer",
   componentDidMount: function() {
     var apiUrl = "http://iiif.embedr.eu/"+this.props.id+"/info.json";
     $.getJSON(apiUrl, function(res) {
-      console.log(res);
       this.setState({
         height: res.height,
         width: res.width
