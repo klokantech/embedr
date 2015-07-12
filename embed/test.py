@@ -14,11 +14,11 @@ class EmbedTestCase(unittest.TestCase):
 
 		app.config.update(
 			SERVER_NAME='127.0.0.1:5000',
-			IIIF_SERVER='http://iiifhawk.klokantech.com'
+			IIIF_SERVER='iiifhawk.klokantech.com'
 		)
 		
 		self.app = app.test_client()
-		app.extensions['redis'].set('item@id:test_id', json.dumps({'url': ['http://unittest_url.org', 'http://unittest_url2.org'], 'title': 'Unittest title', 'creator': 'Unittest creator', 'source': 'http://unittest_source.org','institution': 'Unittest institution', 'institution_link': 'http://unittest_institution_link.org', 'license': 'http://unittest_license_link.org', 'description': 'Unittest description', 'image_meta': {'http://unittest_url.org': {'width': 1000, 'height': 1000, 'filename': 'test_id.jp2', 'order': 0}, 'http://unittest_url2.org': {'width': 100, 'height': 100, 'filename': 'test_id/1.jp2', 'order': 1}}, 'lock': False}))
+		app.extensions['redis'].set('item_id@test_id', json.dumps({'url': ['http://unittest_url.org', 'http://unittest_url2.org'], 'title': 'Unittest title', 'creator': 'Unittest creator', 'source': 'http://unittest_source.org','institution': 'Unittest institution', 'institution_link': 'http://unittest_institution_link.org', 'license': 'http://unittest_license_link.org', 'description': 'Unittest description', 'image_meta': {'http://unittest_url.org': {'width': 1000, 'height': 1000, 'filename': 'test_id.jp2', 'order': 0}, 'http://unittest_url2.org': {'width': 100, 'height': 100, 'filename': 'test_id/1.jp2', 'order': 1}}, 'lock': False}))
 
 	def tearDown(self):
 		pass
@@ -42,45 +42,21 @@ class EmbedTestCase(unittest.TestCase):
 		assert '<meta name="dc:description" content="Unittest description"/>' in rv.data
 		assert '<link rel="alternate" type="application/json+oembed" href="http://127.0.0.1:5000/oembed?url=http%3A//127.0.0.1%3A5000/test_id/0&format=json" title="Unittest title oEmbed Profile" />' in rv.data
 		assert '<link rel="alternate" type="text/xml+oembed" href="http://127.0.0.1:5000/oembed?url=http%3A//127.0.0.1%3A5000/test_id/0&format=xml" title="Unittest title oEmbed Profile" />' in rv.data
-		assert '''<script type="text/javascript">
-      OpenSeadragon({
-        id: 'map',
-        prefixUrl: "/static/img/",
-        showNavigationControl: false,
-        tileSources: [{"@context": "http://iiif.io/api/image/2/context.json", "@id": "http://iiifhawk.klokantech.com/test_id", "filename": "test_id.jp2", "height": 1000, "order": 0, "profile": ["http://iiif.io/api/image/2/level1.json", {"formats": ["jpg"], "qualities": ["native", "color", "gray"], "supports": ["regionByPct", "sizeByForcedWh", "sizeByWh", "sizeAboveFull", "rotationBy90s", "mirroring", "gray"]}], "protocol": "http://iiif.io/api/image", "tiles": [{"height": 256, "scaleFactors": [1, 2, 4], "width": 256}], "width": 1000}, {"@context": "http://iiif.io/api/image/2/context.json", "@id": "http://iiifhawk.klokantech.com/test_id/1", "filename": "test_id/1.jp2", "height": 100, "order": 1, "profile": ["http://iiif.io/api/image/2/level1.json", {"formats": ["jpg"], "qualities": ["native", "color", "gray"], "supports": ["regionByPct", "sizeByForcedWh", "sizeByWh", "sizeAboveFull", "rotationBy90s", "mirroring", "gray"]}], "protocol": "http://iiif.io/api/image", "tiles": [{"height": 256, "scaleFactors": [1], "width": 256}], "width": 100}],
-        sequenceMode: true
-      });
-    </script>''' in rv.data
+		assert '''tileSources: [{"@context": "http://iiif.io/api/image/2/context.json", "@id": "http://iiifhawk.klokantech.com/test_id", "filename": "test_id.jp2", "height": 1000, "order": 0, "profile": ["http://iiif.io/api/image/2/level1.json", {"formats": ["jpg"], "qualities": ["native", "color", "gray"], "supports": ["regionByPct", "sizeByForcedWh", "sizeByWh", "sizeAboveFull", "rotationBy90s", "mirroring", "gray"]}], "protocol": "http://iiif.io/api/image", "tiles": [{"height": 256, "scaleFactors": [1, 2, 4], "width": 256}], "width": 1000}, {"@context": "http://iiif.io/api/image/2/context.json", "@id": "http://iiifhawk.klokantech.com/test_id/1", "filename": "test_id/1.jp2", "height": 100, "order": 1, "profile": ["http://iiif.io/api/image/2/level1.json", {"formats": ["jpg"], "qualities": ["native", "color", "gray"], "supports": ["regionByPct", "sizeByForcedWh", "sizeByWh", "sizeAboveFull", "rotationBy90s", "mirroring", "gray"]}], "protocol": "http://iiif.io/api/image", "tiles": [{"height": 256, "scaleFactors": [1], "width": 256}], "width": 100}]''' in rv.data
 
 	def test_iFrame2(self):
 		rv = self.app.get('/test_id/0')
 		assert rv.status_code == 200
 		assert '<link rel="alternate" type="application/json+oembed" href="http://127.0.0.1:5000/oembed?url=http%3A//127.0.0.1%3A5000/test_id/0&format=json" title="Unittest title oEmbed Profile" />' in rv.data
 		assert '<link rel="alternate" type="text/xml+oembed" href="http://127.0.0.1:5000/oembed?url=http%3A//127.0.0.1%3A5000/test_id/0&format=xml" title="Unittest title oEmbed Profile" />' in rv.data
-		assert '''<script type="text/javascript">
-      OpenSeadragon({
-        id: 'map',
-        prefixUrl: "/static/img/",
-        showNavigationControl: false,
-        tileSources: [{"@context": "http://iiif.io/api/image/2/context.json", "@id": "http://iiifhawk.klokantech.com/test_id", "filename": "test_id.jp2", "height": 1000, "order": 0, "profile": ["http://iiif.io/api/image/2/level1.json", {"formats": ["jpg"], "qualities": ["native", "color", "gray"], "supports": ["regionByPct", "sizeByForcedWh", "sizeByWh", "sizeAboveFull", "rotationBy90s", "mirroring", "gray"]}], "protocol": "http://iiif.io/api/image", "tiles": [{"height": 256, "scaleFactors": [1, 2, 4], "width": 256}], "width": 1000}],
-        sequenceMode: true
-      });
-    </script>''' in rv.data
+		assert '''tileSources: [{"@context": "http://iiif.io/api/image/2/context.json", "@id": "http://iiifhawk.klokantech.com/test_id", "filename": "test_id.jp2", "height": 1000, "order": 0, "profile": ["http://iiif.io/api/image/2/level1.json", {"formats": ["jpg"], "qualities": ["native", "color", "gray"], "supports": ["regionByPct", "sizeByForcedWh", "sizeByWh", "sizeAboveFull", "rotationBy90s", "mirroring", "gray"]}], "protocol": "http://iiif.io/api/image", "tiles": [{"height": 256, "scaleFactors": [1, 2, 4], "width": 256}], "width": 1000}]''' in rv.data
     
 	def test_iFrame3(self):
 		rv = self.app.get('/test_id/1')
 		assert rv.status_code == 200
 		assert '<link rel="alternate" type="application/json+oembed" href="http://127.0.0.1:5000/oembed?url=http%3A//127.0.0.1%3A5000/test_id/1&format=json" title="Unittest title oEmbed Profile" />' in rv.data
 		assert '<link rel="alternate" type="text/xml+oembed" href="http://127.0.0.1:5000/oembed?url=http%3A//127.0.0.1%3A5000/test_id/1&format=xml" title="Unittest title oEmbed Profile" />' in rv.data
-		assert '''<script type="text/javascript">
-      OpenSeadragon({
-        id: 'map',
-        prefixUrl: "/static/img/",
-        showNavigationControl: false,
-        tileSources: [{"@context": "http://iiif.io/api/image/2/context.json", "@id": "http://iiifhawk.klokantech.com/test_id/1", "filename": "test_id/1.jp2", "height": 100, "order": 1, "profile": ["http://iiif.io/api/image/2/level1.json", {"formats": ["jpg"], "qualities": ["native", "color", "gray"], "supports": ["regionByPct", "sizeByForcedWh", "sizeByWh", "sizeAboveFull", "rotationBy90s", "mirroring", "gray"]}], "protocol": "http://iiif.io/api/image", "tiles": [{"height": 256, "scaleFactors": [1], "width": 256}], "width": 100}],
-        sequenceMode: true
-      });
-    </script>''' in rv.data
+		assert '''tileSources: [{"@context": "http://iiif.io/api/image/2/context.json", "@id": "http://iiifhawk.klokantech.com/test_id/1", "filename": "test_id/1.jp2", "height": 100, "order": 1, "profile": ["http://iiif.io/api/image/2/level1.json", {"formats": ["jpg"], "qualities": ["native", "color", "gray"], "supports": ["regionByPct", "sizeByForcedWh", "sizeByWh", "sizeAboveFull", "rotationBy90s", "mirroring", "gray"]}], "protocol": "http://iiif.io/api/image", "tiles": [{"height": 256, "scaleFactors": [1], "width": 256}], "width": 100}]''' in rv.data
 
 	def test_iFrame4(self):
 		rv = self.app.get('/test_id/2')
@@ -197,13 +173,14 @@ class EmbedTestCase(unittest.TestCase):
   "institution_link": "http://unittest_institution_link.org",
   "license": "http://unittest_license_link.org",
   "description": "Unittest description"}]))
+  		print rv.data
 		assert rv.status_code == 200
 		assert '{"batch_id": 1}' in rv.data
 
 	def test_ingest3(self):
 		rv = self.app.get('/ingest?batch_id=1')
 		assert rv.status_code == 200
-		assert '[{"status": "ok", "id": "test_id", "urls": ["ok", "ok"]}]' in rv.data
+		assert '[{"status": "pending", "id": "test_id", "urls": ["ok", "ok"]}]' in rv.data
 
 	def test_ingest4(self):
 		rv = self.app.post('/ingest', headers={'Content-Type': 'application/json'}, data=json.dumps([{"id": "@test_id"}]))

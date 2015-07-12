@@ -4,9 +4,9 @@ import math
 import subprocess
 import time
 import random
-import re
 import hashlib
 from datetime import datetime
+import traceback
 
 import simplejson as json
 import redis
@@ -18,12 +18,6 @@ from models import Item, Batch, Task
 from exceptions import NoItemInDb, ErrorItemImport
 from helper import getBucket, getCloudSearch
 
-
-identify_output_regular = re.compile(r'''
-	^
-	(?P<size_json>.+)
-	\n$
-	''', re.VERBOSE)
 
 S3_CHUNK_SIZE = int(os.getenv('S3_CHUNK_SIZE', 52428800))
 S3_DEFAULT_FOLDER = os.getenv('S3_DEFAULT_FOLDER', '')
@@ -80,20 +74,23 @@ def ingestQueue(batch_id, item_id, task_id):
 			f.write(r.read())
 			f.close()
 		
-			if subprocess.check_output(['identify', '-format', '%m', filename]) != 'TIFF':
-				subprocess.call(['convert', '-compress', 'none', filename, '%s.tif' % filename])
+			if subprocess.check_output(['identify', '-quiet', '-format', '%m', filename]) != 'TIFF':
+				subprocess.call(['convert', '-quiet', '-compress', 'none', filename, '%s.tif' % filename])
 				os.remove('%s' % filename)
 			else:
 				os.rename('%s' % filename, '%s.tif' % filename)
 	
-			test = identify_output_regular.search(subprocess.check_output(['identify', '-format', '{"width": %w, "height": %h}', '%s.tif' % filename]))
+			test = subprocess.check_output(['identify', '-quiet', '-format', 'width:%w;height:%h;', '%s.tif' % filename])
 		
 			if test:
-				task.image_meta = json.loads(test.group('size_json'))
+				tmp = test.split(';')
+				width = int(tmp[0].split(':')[1])
+				height = int(tmp[1].split(':')[1])
+				task.image_meta = {"width": width, "height": height}
 			else:
 				raise Exception
 		
-			subprocess.call(['kdu_compress', '-i', '%s.tif' % filename, '-o', '%s.jp2' % filename, '-rate', '0.5', 'Clayers=1', 'Clevels=7', 'Cprecincts={256,256},{256,256},{256,256},{128,128},{128,128},{64,64},{64,64},{32,32},{16,16}', 'Corder=RPCL', 'ORGgen_plt=yes', 'ORGtparts=R', 'Cblk={64,64}', 'Cuse_sop=yes'])
+			subprocess.call(['kdu_compress', '-i', '%s.tif' % filename, '-o', '%s.jp2' % filename, '-rate', '0.5', 'Clayers=1', 'Clevels=7', 'Cprecincts={256,256},{256,256},{256,256},{128,128},{128,128},{64,64},{64,64},{32,32},{16,16}', 'Corder=RPCL', 'ORGgen_plt=yes', 'ORGtparts=R', 'Cblk={64,64}', 'Cuse_sop=yes', '-quiet'])
 
 			source_path = '%s.jp2' % filename
 			source_size = os.stat(source_path).st_size
@@ -118,6 +115,8 @@ def ingestQueue(batch_id, item_id, task_id):
 
 	except:
 		task.attempts += 1
+		
+		print(traceback.format_exc())
 		
 		try:
 			if os.path.isfile('%s' % filename):
@@ -230,6 +229,7 @@ def finalizeItem(batch_id, item_id, item_tasks_count):
 			
 		if MAX_TASK_REPEAT > i:
 			item.save()
+			print "Item '%s' finalized" % item.id
 		else:
 			item_tasks[-1].status = 'error'
 			item_tasks[-1].save()

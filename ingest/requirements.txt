@@ -1,5 +1,5 @@
 amqp==1.4.6
-anyjson==0.3.3
+anyjson
 billiard==3.3.0.20
 bleach==1.4.1
 blinker==1.3

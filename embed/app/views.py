@@ -446,7 +446,7 @@ def ingest():
 					
 					for url in old_item.url:
 						data = {'url': url, 'item_id': unique_id, 'item_tasks_count': len(old_item.url), 'url_order': task_order, 'type': 'del'}
-						task = Task(batch.id, unique_id, task_order, data, task_order)
+						task = Task(batch.id, unique_id, task_order, data)
 						tasks.append(task)
 						task_order += 1
 				else:
