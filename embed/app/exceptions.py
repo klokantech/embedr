@@ -6,3 +6,6 @@ class ErrorItemImport(Exception):
 
 class UnsupportedDbBackend(Exception):
 	pass
+
+class ErrorImageIdentify(Exception):
+	pass

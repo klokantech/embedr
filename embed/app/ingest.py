@@ -15,7 +15,7 @@ import requests
 
 from app.task_queue import task_queue
 from models import Item, Batch, Task
-from exceptions import NoItemInDb, ErrorItemImport
+from exceptions import NoItemInDb, ErrorItemImport, ErrorImageIdentify
 from helper import getBucket, getCloudSearch
 
 
@@ -88,7 +88,7 @@ def ingestQueue(batch_id, item_id, task_id):
 				height = int(tmp[1].split(':')[1])
 				task.image_meta = {"width": width, "height": height}
 			else:
-				raise Exception
+				raise ErrorImageIdentify('Error in the image identify process')
 		
 			subprocess.call(['kdu_compress', '-i', '%s.tif' % filename, '-o', '%s.jp2' % filename, '-rate', '0.5', 'Clayers=1', 'Clevels=7', 'Cprecincts={256,256},{256,256},{256,256},{128,128},{128,128},{64,64},{64,64},{32,32},{16,16}', 'Corder=RPCL', 'ORGgen_plt=yes', 'ORGtparts=R', 'Cblk={64,64}', 'Cuse_sop=yes', '-quiet'])
 
@@ -114,9 +114,8 @@ def ingestQueue(batch_id, item_id, task_id):
 		task.save()
 
 	except:
+		print '\nFailed attempt numb.: %s\nItem: %s\nUrl: %s\nError message:\n###\n%s###' % (task.attempts + 1, task.item_id, task.url, traceback.format_exc())
 		task.attempts += 1
-		
-		print(traceback.format_exc())
 		
 		try:
 			if os.path.isfile('%s' % filename):
@@ -234,9 +233,11 @@ def finalizeItem(batch_id, item_id, item_tasks_count):
 			item_tasks[-1].status = 'error'
 			item_tasks[-1].save()
 			cleanErrItem(item_id, len(item_data['image_meta']))
+			print "Item '%s' failed" % item_id
 
 	else:
 		cleanErrItem(item_id, len(item_data['image_meta']))
+		print "Item '%s' failed" % item_id
 	
 	batch = Batch(batch_id)
 	
