@@ -170,7 +170,7 @@ def finalizeItem(batch_id, item_id, item_tasks_count):
 				except:
 					if i < MAX_TASK_REPEAT:
 						i += 1
-						rand = i + random.randint(i, i * 2)
+						rand = (i * 60) + random.randint((i * 60), (i * 60 * 2))
 						time.sleep(rand)
 					
 					continue
@@ -221,7 +221,7 @@ def finalizeItem(batch_id, item_id, item_tasks_count):
 			except:
 				if i < MAX_TASK_REPEAT:
 					i += 1
-					rand = i + random.randint(i, i * 2)
+					rand = (i * 60) + random.randint((i * 60), (i * 60 * 2))
 					time.sleep(rand)
 
 				continue
@@ -281,7 +281,7 @@ def finalizeBatch(batch):
 		except:
 			if i < MAX_TASK_REPEAT:
 				i += 1
-				rand = i + random.randint(i, i * 2)
+				rand = (i * 60) + random.randint((i * 60), (i * 60 * 2))
 				time.sleep(rand)
 			
 			continue
