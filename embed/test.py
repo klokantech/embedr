@@ -163,24 +163,24 @@ class EmbedTestCase(unittest.TestCase):
 		rv = self.app.get('/ingest?batch_id=1')
 		assert rv.status_code == 404
 
-	def test_ingest2(self):
-		rv = self.app.post('/ingest', headers={'Content-Type': 'application/json'}, data=json.dumps([{"id": "test_id",
-  "url": ["http://unittest_url.org", "http://unittest_url2.org"],
-  "title": "Unittest title",
-  "creator": "Unittest creator",
-  "source": "http://unittest_source.org",
-  "institution": "Unittest institution",
-  "institution_link": "http://unittest_institution_link.org",
-  "license": "http://unittest_license_link.org",
-  "description": "Unittest description"}]))
-  		print rv.data
-		assert rv.status_code == 200
-		assert '{"batch_id": 1}' in rv.data
+#	def test_ingest2(self):
+#		rv = self.app.post('/ingest', headers={'Content-Type': 'application/json'}, data=json.dumps([{"id": "test_id",
+#  "url": ["http://unittest_url.org", "http://unittest_url2.org"],
+#  "title": "Unittest title",
+#  "creator": "Unittest creator",
+#  "source": "http://unittest_source.org",
+#  "institution": "Unittest institution",
+#  "institution_link": "http://unittest_institution_link.org",
+#  "license": "http://unittest_license_link.org",
+#  "description": "Unittest description"}]))
+#  		print rv.data
+#		assert rv.status_code == 200
+#		assert '{"batch_id": 1}' in rv.data
 
-	def test_ingest3(self):
-		rv = self.app.get('/ingest?batch_id=1')
-		assert rv.status_code == 200
-		assert '[{"status": "pending", "id": "test_id", "urls": ["ok", "ok"]}]' in rv.data
+#	def test_ingest3(self):
+#		rv = self.app.get('/ingest?batch_id=1')
+#		assert rv.status_code == 200
+#		assert '[{"status": "pending", "id": "test_id", "urls": ["ok", "ok"]}]' in rv.data
 
 	def test_ingest4(self):
 		rv = self.app.post('/ingest', headers={'Content-Type': 'application/json'}, data=json.dumps([{"id": "@test_id"}]))

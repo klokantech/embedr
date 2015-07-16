@@ -4,4 +4,4 @@ python:
 # command to install dependencies
 install: "pip install -r embed/requirements.txt"
 # command to run tests
-script: embed/test
+script: embed/test.py
