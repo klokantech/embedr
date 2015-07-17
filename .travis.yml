@@ -1,7 +1,7 @@
 language: python
 python:
   - "2.7"
-# command to install dependencies
 install: "pip install -r embed/requirements.txt"
-# command to run tests
-script: embed/test.py
+script:
+  - cd embed
+  - python test.py
