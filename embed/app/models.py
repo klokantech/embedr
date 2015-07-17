@@ -1,3 +1,5 @@
+"""Module which defines data model"""
+
 import simplejson as json
 
 from exceptions import NoItemInDb, ErrorItemImport

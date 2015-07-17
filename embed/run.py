@@ -1,4 +1,4 @@
-"""Script for start of aplication in local debug mode"""
+"""Script which starts embed aplication"""
 
 import os
 

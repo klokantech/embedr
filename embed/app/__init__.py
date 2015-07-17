@@ -1,4 +1,4 @@
-"""Module which provides flask aplication factory"""
+"""Module which provides flask embed aplication factory"""
 
 import os
 

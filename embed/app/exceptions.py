@@ -1,3 +1,5 @@
+"""Module which provides user defined exceptions"""
+
 class NoItemInDb(Exception):
 	pass
 

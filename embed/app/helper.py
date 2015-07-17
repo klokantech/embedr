@@ -1,3 +1,5 @@
+"""Module which defines some useful helper functions"""
+
 import os
 import math
 
@@ -10,6 +12,12 @@ CLOUDSEARCH_REGION = os.getenv('CLOUDSEARCH_REGION', '')
 
 
 def prepareTileSources(item, url, order):
+	"""Function which returns item with properly formated data for IIIF zooming.
+	   'item' - item whose data have to be formated
+	   'url' - base url of processed image
+	   'order' - order number of specified image
+	"""
+	
 	if order == 0:
 		filename = item.id
 	else:
@@ -35,10 +43,16 @@ def prepareTileSources(item, url, order):
 
 
 def getBucket():
+	"""Function which returns S3 bucket defined by environment variable"""
+	
 	os.environ['S3_USE_SIGV4'] = 'True'
 	s3 = boto.connect_s3(host=S3_HOST)
 	return s3.get_bucket(S3_DEFAULT_BUCKET)
 
 
 def getCloudSearch(domain):
+	"""Function which returns Cloud Search document service
+	   'domain' - Cloud Search domain to return document service for
+	"""
+	
 	return boto.connect_cloudsearch2(region=CLOUDSEARCH_REGION, sign_request=True).lookup(domain).get_document_service()

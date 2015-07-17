@@ -1,3 +1,5 @@
+"""Script which runs unittests"""
+
 import os
 import unittest
 

@@ -1,3 +1,4 @@
+"""Module with IIIF manifest factory from https://github.com/IIIF/presentation-api/tree/master/implementations/manifest-factory"""
 
 import os, sys
 import commands

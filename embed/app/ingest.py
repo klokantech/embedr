@@ -1,3 +1,5 @@
+"""Module which provides ingest functionality and which can be run by celery"""
+
 import os
 import urllib2
 import math
