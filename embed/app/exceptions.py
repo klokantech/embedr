@@ -11,3 +11,6 @@ class UnsupportedDbBackend(Exception):
 
 class ErrorImageIdentify(Exception):
 	pass
+
+class WrongCloudSearchService(Exception):
+	pass

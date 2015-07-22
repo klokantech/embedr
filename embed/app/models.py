@@ -88,8 +88,7 @@ class Item():
 		
 class Batch():
 	def __init__(self, id=None):
-		self.items = {}
-		self.data = []
+		self.items = []
 
 		if id is None:
 			self.id = db.incr('batch@id', 1)
@@ -107,23 +106,15 @@ class Batch():
 					if data.has_key('items'):
 						self.items = data['items']
 						
-						if type(self.items) != dict:
-							raise ErrorItemImport('There is an error in the batch`s model representation %s' % data)
-					
-					if data.has_key('data'):
-						self.data = data['data']
-						
-						if type(self.data) != list:
+						if type(self.items) != list:
 							raise ErrorItemImport('There is an error in the batch`s model representation %s' % data)
 											
 				except:
 					raise ErrorItemImport('There is an error in the batch`s model representation %s' % data)
 	
 	def save(self):
-		db.set('batch@id@%s' % self.id, json.dumps({'items': self.items, 'data': self.data}))
+		db.set('batch@id@%s' % self.id, json.dumps({'items': self.items}))
 
-	def increment_finished_items(self):
-		return db.incr('batch@id@%s@finished_items' % (self.id), 1)
 
 class Task():
 	def __init__(self, batch_id, item_id, task_id, data=None):
@@ -180,3 +171,6 @@ class Task():
 	def increment_finished_item_tasks(self):
 		if self.item_id != '':
 			return db.incr('batch@id@%s@item@id%s' % (self.batch_id, self.item_id), 1)
+	
+	def delete(self):
+		db.delete('batch@id@%s@item@id%s@task@id@%s' % (self.batch_id, self.item_id, self.task_id))

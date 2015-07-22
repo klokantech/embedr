@@ -5,6 +5,7 @@ import os
 import re
 from urlparse import urlparse
 import time
+import gzip
 
 from flask import request, render_template, abort, url_for, g
 import simplejson as json
@@ -15,14 +16,14 @@ from iiif_manifest_factory import ManifestFactory
 from ingest import ingestQueue
 from models import Item, Batch, Task
 from exceptions import NoItemInDb, ErrorItemImport
-from helper import prepareTileSources
+from helper import prepareTileSources, getCloudSearch
 
 
 ALLOWED_TAGS = ['b', 'blockquote', 'code', 'em', 'i', 'li', 'ol', 'strong', 'ul']
 
 item_url_regular = re.compile(r"""
 	^/
-	(?P<unique_id>([-_.:~a-zA-Z0-9]){1,255})
+	(?P<item_id>([-_.:~a-zA-Z0-9]){1,255})
 	/?
 	(?P<order>\d*)
 	""", re.VERBOSE)
@@ -33,17 +34,15 @@ id_regular = re.compile(r"""
 
 url_regular = re.compile(ur'(?i)\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>]+|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]+|(\([^\s()<>]+\)))*\)|[^\s`!()\[\]{};:\'".,<>?\xab\xbb\u201c\u201d\u2018\u2019]))')
 
-CLOUDSEARCH_BATCH_SIZE = int(os.getenv('CLOUDSEARCH_BATCH_SIZE', 100))
-
 
 #@app.route('/')
 def index():
 	return render_template('index.html')
 
 
-#@app.route('/<unique_id>')
-#@app.route('/<unique_id>/<order>')
-def iFrame(unique_id, order=None):
+#@app.route('/<item_id>')
+#@app.route('/<item_id>/<order>')
+def iFrame(item_id, order=None):
 	if order is not None:
 		try:
 			order = int(order)
@@ -56,7 +55,7 @@ def iFrame(unique_id, order=None):
 		order = -1
 	
 	try:
-		item = Item(unique_id)
+		item = Item(item_id)
 	except NoItemInDb as err:
 		return err.message, 404
 	except ErrorItemImport as err:
@@ -85,10 +84,10 @@ def iFrame(unique_id, order=None):
 	return render_template('iframe_openseadragon_inline.html', item = item, tile_sources = tile_sources, order = order)
 
 
-#@app.route('/<unique_id>/manifest.json')
-def iiifMeta(unique_id):
+#@app.route('/<item_id>/manifest.json')
+def iiifMeta(item_id):
 	try:
-		item = Item(unique_id)
+		item = Item(item_id)
 	except NoItemInDb as err:
 		return err.message, 404
 	except ErrorItemImport as err:
@@ -103,7 +102,7 @@ def iiifMeta(unique_id):
 	fac.set_base_image_uri('http://%s' % app.config['IIIF_SERVER'])
 	fac.set_iiif_image_info(2.0, 2)
 	
-	mf = fac.manifest(ident=url_for('iiifMeta', unique_id=unique_id, _external=True), label=item.title)
+	mf = fac.manifest(ident=url_for('iiifMeta', item_id=item_id, _external=True), label=item.title)
 	mf.description = item.description
 	mf.license = item.license
 	
@@ -112,7 +111,7 @@ def iiifMeta(unique_id):
 	mf.set_metadata({"label":"Institution", "value":item.institution})
 	mf.set_metadata({"label":"Institution link", "value":item.institution_link})
 	
-	seq = mf.sequence(ident='http://%s/sequence/s.json' % app.config['SERVER_NAME'], label='Item %s - sequence 1' % unique_id)
+	seq = mf.sequence(ident='http://%s/sequence/s.json' % app.config['SERVER_NAME'], label='Item %s - sequence 1' % item_id)
 
 	count = 0
 	
@@ -127,15 +126,15 @@ def iiifMeta(unique_id):
 		else:
 			height = 1
 	
-		cvs = seq.canvas(ident='http://%s/canvas/c%s.json' % (app.config['SERVER_NAME'], count), label='Item %s - image %s' % (unique_id, count))
+		cvs = seq.canvas(ident='http://%s/canvas/c%s.json' % (app.config['SERVER_NAME'], count), label='Item %s - image %s' % (item_id, count))
 		cvs.set_hw(height, width)
 	
 		anno = cvs.annotation()
 		
 		if count == 0:
-			filename = unique_id
+			filename = item_id
 		else:
-			filename = '%s/%s' % (unique_id, count)
+			filename = '%s/%s' % (item_id, count)
 
 		img = anno.image(ident='/%s/full/full/0/native.jpg' % filename)
 		img.add_service(ident='http://%s/%s' % (app.config['IIIF_SERVER'], filename), context='http://iiif.io/api/image/2/context.json', profile='http://iiif.io/api/image/2/profiles/level2.json')
@@ -174,7 +173,7 @@ def oEmbed():
 	test = item_url_regular.search(p_url.path)
 		
 	if test:
-		unique_id = test.group('unique_id')
+		item_id = test.group('item_id')
 		order = test.group('order')
 		
 		if order == '':
@@ -185,7 +184,7 @@ def oEmbed():
 		return 'Unsupported format of ID', 404
 
 	try:
-		item = Item(unique_id)
+		item = Item(item_id)
 	except NoItemInDb as err:
 		return err.message, 404
 	except ErrorItemImport as err:
@@ -264,9 +263,9 @@ def oEmbed():
 			height = outheight
 	
 	if order == 0:
-		filename = unique_id
+		filename = item_id
 	else:
-		filename = '%s/%s' % (unique_id, order)
+		filename = '%s/%s' % (item_id, order)
 	
 	data = {}
 	data[u'version'] = '1.0'
@@ -299,47 +298,47 @@ def ingest():
 			batch = Batch(batch_id)
 		except:
 			abort(404)
+
+		try:
+			cloudsearch = getCloudSearch(app.config['CLOUDSEARCH_BATCH_DOMAIN'], 'search')
+			results = cloudsearch.search(q='batch_id:%s' % batch_id, parser='structured', size=500)
+			finished_items = {}
+			
+			while results:
+				for doc in results.docs:
+					item_id = doc['fields']['item_id']
+				
+					if finished_items.has_key(item_id):
+						finished_items[item_id].append(doc['fields']['status'])
+					else:
+						finished_items[item_id] = [doc['fields']['status']]
+				
+				results = results.next_page()
 	
+		except:
+			return json.dumps({'errors': 'Problem with Cloud Search'}), 404, {'Content-Type': 'application/json'}
 
 		output = []
 		
-		for item in batch.data:
-			unique_id = item['id']
-			tmp = {'id': unique_id}
+		for item_id in batch.items:
+			tmp = {'id': item_id}
 			
-			if item.has_key('status') and item['status'] == 'deleted':
-				tmp['status'] = 'deleted'
-				output.append(tmp)
-				continue
-			
-			if batch.items.has_key(unique_id):
-				item_tasks = {}
-				
-				for task_id in batch.items[unique_id]:
-					task = Task(batch.id, unique_id, task_id)
-				
-					if not item_tasks.has_key(task.url) or (item_tasks.has_key(task.url) and item_tasks[task.url] != 'ok'):
-						item_tasks[task.url] = task.status
-				
-				tmp['urls'] = []
-				
-				for url in item['url']:
-					# actualy ingested url
-					if item_tasks.has_key(url):
-						tmp['urls'].append(item_tasks[url])
-					# ingested url in past
-					else:
-						tmp['urls'].append('ok')
-				
-				if 'error' in item_tasks.values():
+			if finished_items.has_key(item_id):
+				if 'error' in finished_items[item_id]:
 					tmp['status'] = 'error'
-				elif 'pending' in item_tasks.values():
+				elif 'pending' in finished_items[item_id]:
 					tmp['status'] = 'pending'
 				else:
 					tmp['status'] = 'ok'
 				
+				try:
+					if Task(batch_id, item_id, 0).item_tasks_count > len(finished_items[item_id]):
+						tmp['status'] = 'pending'
+				except:
+					pass
+				
 			else:
-				tmp['status'] = 'error'
+				tmp['status'] = 'pending'
 			
 			output.append(tmp)
 					
@@ -357,6 +356,9 @@ def ingest():
 
 		if type(batch_data) is not list or len(batch_data) == 0:
 			abort(404)
+		
+		if len(batch_data) > 10000:
+			return json.dumps({'errors': 'maximum number of items is 10 000'}), 404, {'Content-Type': 'application/json'}
 		
 		item_ids = []
 		errors = []
@@ -425,16 +427,23 @@ def ingest():
 		
 		if errors:
 			return json.dumps({'errors': errors}), 404, {'Content-Type': 'application/json'}
-		
+			
 		batch = Batch()
+
+		f = gzip.open('/data/batch_%s.gz' % batch.id, 'wb')
+		f.write(request.data)
+		f.close()
+
 		tasks = []
 		
 		# processing
 		for item_data in batch_data:
-			unique_id = item_data['id']
+			item_id = item_data['id']
+			
+			batch.items.append(item_id)
 
 			try:
-				old_item = Item(unique_id)
+				old_item = Item(item_id)
 			except NoItemInDb, ErrorItemImport:
 				old_item = None
 			
@@ -445,8 +454,8 @@ def ingest():
 					task_order = 0
 					
 					for url in old_item.url:
-						data = {'url': url, 'item_id': unique_id, 'item_tasks_count': len(old_item.url), 'url_order': task_order, 'type': 'del'}
-						task = Task(batch.id, unique_id, task_order, data)
+						data = {'url': url, 'item_id': item_id, 'item_tasks_count': len(old_item.url), 'url_order': task_order, 'type': 'del'}
+						task = Task(batch.id, item_id, task_order, data)
 						tasks.append(task)
 						task_order += 1
 				else:
@@ -474,7 +483,7 @@ def ingest():
 						if url_order < new_count and url_order < old_count:
 							# different url on the specific position --> overwrite
 							if item_data['url'][url_order] != old_item.url[url_order]:
-								data = {'url': item_data['url'][url_order], 'item_id': unique_id, 'url_order': url_order, 'type': 'add'}
+								data = {'url': item_data['url'][url_order], 'item_id': item_id, 'url_order': url_order, 'type': 'add'}
 								update_list.append(data)
 						else:
 							# end of both lists
@@ -483,25 +492,25 @@ def ingest():
 						
 							# a new url list is shorter than old one --> something to delelete
 							if url_order >= new_count:
-								data = {'url': old_item.url[url_order], 'item_id': unique_id, 'url_order': url_order, 'type': 'del'}
+								data = {'url': old_item.url[url_order], 'item_id': item_id, 'url_order': url_order, 'type': 'del'}
 								update_list.append(data)
 							
 							# a new url list is longer than old one --> something to add
 							elif url_order >= old_count:
-								data = {'url': item_data['url'][url_order], 'item_id': unique_id, 'url_order': url_order, 'type': 'add'}
+								data = {'url': item_data['url'][url_order], 'item_id': item_id, 'url_order': url_order, 'type': 'add'}
 								update_list.append(data)
 					
 					# no change in url, change in other data possible
 					if not update_list:
-						data = {'item_id': unique_id, 'type': 'mod', 'item_tasks_count': 1}
-						task = Task(batch.id, unique_id, 0, data)
+						data = {'item_id': item_id, 'type': 'mod', 'item_tasks_count': 1}
+						task = Task(batch.id, item_id, 0, data)
 						tasks.append(task)
 					else:
 						task_order = 0
 						
 						for data in update_list:
 							data['item_tasks_count'] = len(update_list)
-							task = Task(batch.id, unique_id, task_order, data)
+							task = Task(batch.id, item_id, task_order, data)
 							tasks.append(task)
 							task_order += 1
 						
@@ -510,8 +519,8 @@ def ingest():
 					task_order = 0
 				
 					for url in item_data['url']:
-						data = {'url': url, 'item_id': unique_id, 'url_order': task_order, 'item_data': item_data, 'item_tasks_count': len(item_data['url']), 'type': 'add'}
-						task = Task(batch.id, unique_id, task_order, data)
+						data = {'url': url, 'item_id': item_id, 'url_order': task_order, 'item_data': item_data, 'item_tasks_count': len(item_data['url']), 'type': 'add'}
+						task = Task(batch.id, item_id, task_order, data)
 						tasks.append(task)
 						task_order += 1
 					
@@ -522,15 +531,6 @@ def ingest():
 			if old_item:
 				old_item.lock = True
 				old_item.save()
-		
-		batch.data = batch_data
-		
-		for task in tasks:
-			if not batch.items.has_key(task.item_id):
-				batch.items[task.item_id] = []
-
-			batch.items[task.item_id].append(task.task_id)
-				
 			
 		batch.save()
 

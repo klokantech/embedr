@@ -25,11 +25,16 @@ embed:
     - redis
   volumes:
     - ./embed:/usr/local/src/hawk/
+    - ./data/redis:/data
   environment:
     - SERVER_NAME=media.embedr.eu
     - IIIF_SERVER=iiif.embedr.eu
     - REDIS_SERVER=redis
     - REDIS_PORT_NUMBER=6379
+    - AWS_ACCESS_KEY_ID=
+    - AWS_SECRET_ACCESS_KEY=
+    - CLOUDSEARCH_REGION=eu-central-1
+    - CLOUDSEARCH_BATCH_DOMAIN=hawk-batch
 
 ingest:
   build: ./ingest

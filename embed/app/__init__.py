@@ -19,7 +19,8 @@ def app_factory(db_backend=None):
 		REDIS_PORT_NUMBER=int(os.getenv('REDIS_PORT_NUMBER', 6379)),
 		DEBUG=os.getenv('DEBUG', False),
 		HOST=os.getenv('HOST', '127.0.0.1'),
-		PORT=int(os.getenv('PORT', 5000))
+		PORT=int(os.getenv('PORT', 5000)),
+		CLOUDSEARCH_BATCH_DOMAIN = os.getenv('CLOUDSEARCH_BATCH_DOMAIN', '')
 	)
 	
 	if db_backend:
@@ -36,9 +37,9 @@ def app_factory(db_backend=None):
 	app.extensions['redis'] = db
 
 	app.route('/')(views.index)
-	app.route('/<unique_id>')(views.iFrame)
-	app.route('/<unique_id>/<order>')(views.iFrame)
-	app.route('/<unique_id>/manifest.json')(views.iiifMeta)
+	app.route('/<item_id>')(views.iFrame)
+	app.route('/<item_id>/<order>')(views.iFrame)
+	app.route('/<item_id>/manifest.json')(views.iiifMeta)
 	app.route('/oembed', methods=['GET'])(views.oEmbed)
 	app.route('/ingest', methods=['GET', 'POST'])(views.ingest)
 

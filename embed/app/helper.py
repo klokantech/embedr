@@ -6,6 +6,8 @@ import math
 import boto
 from flask import current_app as app
 
+from exceptions import WrongCloudSearchService
+
 S3_HOST = os.getenv('S3_HOST', '')
 S3_DEFAULT_BUCKET = os.getenv('S3_DEFAULT_BUCKET', '')
 CLOUDSEARCH_REGION = os.getenv('CLOUDSEARCH_REGION', '')
@@ -50,9 +52,15 @@ def getBucket():
 	return s3.get_bucket(S3_DEFAULT_BUCKET)
 
 
-def getCloudSearch(domain):
-	"""Function which returns Cloud Search document service
-	   'domain' - Cloud Search domain to return document service for
+def getCloudSearch(domain, service):
+	"""Function which returns Cloud Search service (document or search)
+	   'domain' - Cloud Search domain to return service for
+	   'service' - type of service, can be document or search
 	"""
 	
-	return boto.connect_cloudsearch2(region=CLOUDSEARCH_REGION, sign_request=True).lookup(domain).get_document_service()
+	if service == 'document':
+		return boto.connect_cloudsearch2(region=CLOUDSEARCH_REGION, sign_request=True).lookup(domain).get_document_service()
+	elif service == 'search':
+		return boto.connect_cloudsearch2(region=CLOUDSEARCH_REGION, sign_request=True).lookup(domain).get_search_service()
+	else:
+		raise WrongCloudSearchService('Wrong type of Cloud Search service "%s"' % service)	
