@@ -10,6 +10,10 @@ from models import db
 
 
 def app_factory(db_backend=None):
+	"""Function which provides embed application factory. It takes config from environment and returns embed app itself.
+	'db_backend' - type of database backend, can be 'redis' (default) or 'fakeredis'
+	"""
+	
 	app = Flask(__name__)
 
 	app.config.update(
@@ -20,9 +24,10 @@ def app_factory(db_backend=None):
 		DEBUG=os.getenv('DEBUG', False),
 		HOST=os.getenv('HOST', '127.0.0.1'),
 		PORT=int(os.getenv('PORT', 5000)),
-		CLOUDSEARCH_BATCH_DOMAIN = os.getenv('CLOUDSEARCH_BATCH_DOMAIN', '')
+		CLOUDSEARCH_BATCH_DOMAIN=os.getenv('CLOUDSEARCH_BATCH_DOMAIN', '')
 	)
 	
+	### Db initialization ###
 	if db_backend:
 		db.init_db(db_backend)
 	else:
@@ -36,6 +41,7 @@ def app_factory(db_backend=None):
 	
 	app.extensions['redis'] = db
 
+	### Setting of relation between particular url and view function
 	app.route('/')(views.index)
 	app.route('/<item_id>')(views.iFrame)
 	app.route('/<item_id>/<order>')(views.iFrame)

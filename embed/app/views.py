@@ -19,8 +19,10 @@ from exceptions import NoItemInDb, ErrorItemImport
 from helper import prepareTileSources, getCloudSearch
 
 
+# Tags which can be in Item description
 ALLOWED_TAGS = ['b', 'blockquote', 'code', 'em', 'i', 'li', 'ol', 'strong', 'ul']
 
+# Regex for Item ID with order (of image) validation
 item_url_regular = re.compile(r"""
 	^/
 	(?P<item_id>([-_.:~a-zA-Z0-9]){1,255})
@@ -28,21 +30,30 @@ item_url_regular = re.compile(r"""
 	(?P<order>\d*)
 	""", re.VERBOSE)
 
+# Regex for Item ID validation
 id_regular = re.compile(r"""
 	^([-_.:~a-zA-Z0-9]){1,255}$
 	""", re.VERBOSE)
 
+# Regex for general url validation
 url_regular = re.compile(ur'(?i)\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>]+|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]+|(\([^\s()<>]+\)))*\)|[^\s`!()\[\]{};:\'".,<>?\xab\xbb\u201c\u201d\u2018\u2019]))')
 
 
 #@app.route('/')
 def index():
+	"""View function for index page"""
+	
 	return render_template('index.html')
 
 
 #@app.route('/<item_id>')
 #@app.route('/<item_id>/<order>')
 def iFrame(item_id, order=None):
+	"""View function for iFrame. Response with html page for zooming on item. If item has more images, particular image can be requested by order.
+	'item_id' - ID of requested Item
+	'order' - order of requested image in Item
+	"""
+	
 	if order is not None:
 		try:
 			order = int(order)
@@ -86,6 +97,10 @@ def iFrame(item_id, order=None):
 
 #@app.route('/<item_id>/manifest.json')
 def iiifMeta(item_id):
+	"""View function which returns IIIF manifest for particular Item
+	'item_id' - ID of requested Item
+	"""
+	
 	try:
 		item = Item(item_id)
 	except NoItemInDb as err:
@@ -149,6 +164,9 @@ def iiifMeta(item_id):
 
 #@app.route('/oembed', methods=['GET'])
 def oEmbed():
+	"""View function for oembed which returns medatada about Item which can be used to embed this Item to client page. Url is required parameter. Format (json or xml), maxwidth and maxheight are optional."""
+	
+	### Parameters configuration ###
 	url = request.args.get('url', None)
 	
 	if url is None:
@@ -183,6 +201,7 @@ def oEmbed():
 	else:
 		return 'Unsupported format of ID', 404
 
+	### Loading of Item from DB with testing ###
 	try:
 		item = Item(item_id)
 	except NoItemInDb as err:
@@ -196,6 +215,7 @@ def oEmbed():
 	if order >= len(item.url):
 		return 'Wrong item sequence', 404
 
+	### Size of image configuration ###
 	maxwidth = request.args.get('maxwidth', None)
 	maxheight = request.args.get('maxheight', None)
 
@@ -262,6 +282,7 @@ def oEmbed():
 			width = float(outheight) * ratio
 			height = outheight
 	
+	### Output finalization ###
 	if order == 0:
 		filename = item_id
 	else:
@@ -287,7 +308,9 @@ def oEmbed():
 
 #@app.route('/ingest', methods=['GET', 'POST'])
 def ingest():
-	# show info about a ingest
+	"""View function for ingest. It takes json with items (by POST) to ingest or batch_id to show batch state."""
+	
+	### Show info about already started ingest (Batch) ###
 	if request.method == 'GET':
 		batch_id = request.args.get('batch_id', None)
 
@@ -299,6 +322,7 @@ def ingest():
 		except:
 			abort(404)
 
+		### Take info about completed tasks from Cloud Search ###
 		try:
 			cloudsearch = getCloudSearch(app.config['CLOUDSEARCH_BATCH_DOMAIN'], 'search')
 			results = cloudsearch.search(q='batch_id:%s' % batch_id, parser='structured', size=500)
@@ -320,6 +344,7 @@ def ingest():
 
 		output = []
 		
+		### Traverse through all items in batch, those items which are not stored on Cloud Search yet are pending ###
 		for item_id in batch.items:
 			tmp = {'id': item_id}
 			
@@ -344,7 +369,7 @@ def ingest():
 					
 		return json.JSONEncoder().encode(output), 200, {'Content-Type': 'application/json'}
 		
-	# new ingest
+	### New ingest ###
 	else:
 		if request.headers.get('Content-Type') != 'application/json':
 			abort(404)
@@ -363,7 +388,7 @@ def ingest():
 		item_ids = []
 		errors = []
 		
-		# validation
+		### Validation ###
 		for order in range(0, len(batch_data)):
 			item = batch_data[order]
 			
@@ -391,9 +416,9 @@ def ingest():
 			if item.has_key('status'):
 				continue
 			
-			# another tests are usefull only for items which aren't marked to be deleted
+			### Another tests are useful only for items which aren't marked to be deleted ###
 			
-			# convert some input field's names to the internal names
+			### Convert some input field's names to the internal names ###
 			if item.has_key('institutionlink'):
 				item['institution_link'] = item['institutionlink']
 				item.pop('institutionlink', None)
@@ -430,13 +455,14 @@ def ingest():
 			
 		batch = Batch()
 
+		### Storing of compressed json with all ingest orders to local disk ###
 		f = gzip.open('/data/batch_%s.gz' % batch.id, 'wb')
 		f.write(request.data)
 		f.close()
 
 		tasks = []
 		
-		# processing
+		### Processing items from ingest one by one ###
 		for item_data in batch_data:
 			item_id = item_data['id']
 			
@@ -447,7 +473,7 @@ def ingest():
 			except NoItemInDb, ErrorItemImport:
 				old_item = None
 			
-			# delete a item
+			### Delete a item ###
 			if item_data.has_key('status') and item_data['status'] == 'deleted':
 				# if there is no item --> nothing is going to be done
 				if old_item:
@@ -461,9 +487,9 @@ def ingest():
 				else:
 					continue
 			
-			# update or create a new item
+			### Update or create a new item ###
 			else:
-				# sanitising input
+				### Sanitising input ###
 				if item_data.has_key('title'):
 					item_data['title'] = bleach.clean(item_data['title'], tags=[], attributes=[], styles=[], strip=True)
 				if item_data.has_key('creator'):
@@ -473,7 +499,7 @@ def ingest():
 				if item_data.has_key('description'):
 					item_data['description'] = bleach.clean(item_data['description'], tags=ALLOWED_TAGS, attributes=[], styles=[], strip=True)
 					
-				# already stored item
+				### Already stored item ###
 				if old_item:
 					new_count = len(item_data['url'])
 					old_count = len(old_item.url)
@@ -500,7 +526,7 @@ def ingest():
 								data = {'url': item_data['url'][url_order], 'item_id': item_id, 'url_order': url_order, 'type': 'add'}
 								update_list.append(data)
 					
-					# no change in url, change in other data possible
+					### No change in url, change in other data possible ###
 					if not update_list:
 						data = {'item_id': item_id, 'type': 'mod', 'item_tasks_count': 1}
 						task = Task(batch.id, item_id, 0, data)
@@ -514,7 +540,7 @@ def ingest():
 							tasks.append(task)
 							task_order += 1
 						
-				# new item
+				### New item ###
 				else:
 					task_order = 0
 				
@@ -524,7 +550,7 @@ def ingest():
 						tasks.append(task)
 						task_order += 1
 					
-			# last task for specific item receives all item`s data
+			### Last task for specific item receives all item`s data ###
 			task.item_data = item_data
 			task.save()
 		
@@ -534,6 +560,7 @@ def ingest():
 			
 		batch.save()
 
+		### Putting all tasks to the queue ###
 		for task in tasks:
 			ingestQueue.delay(batch.id, task.item_id, task.task_id)
 		

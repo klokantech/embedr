@@ -9,6 +9,11 @@ db = DatabaseWrapper()
 
 
 class Item():
+	"""Class which defines the Item model.
+	'id' - item ID which is unique in whole db
+	'data' - dictionary with Item's metadata
+	"""
+	
 	def __init__(self, id, data=None):
 		self.id = id
 		self.title = ''
@@ -87,6 +92,10 @@ class Item():
 		
 		
 class Batch():
+	"""Class which defines the Batch model.
+	'id' - item ID which is unique in whole db
+	"""
+	
 	def __init__(self, id=None):
 		self.items = []
 
@@ -117,6 +126,13 @@ class Batch():
 
 
 class Task():
+	"""Class which defines the Task model.
+	'batch_id' - ID of parent Batch
+	'item_id' - ID of processed Item
+	'task_id' - ID of Task, it is order of tasks for one Item 
+	'data' - dictionary with Task's metadata
+	"""
+	
 	def __init__(self, batch_id, item_id, task_id, data=None):
 		self.task_id = task_id
 		self.batch_id = batch_id
