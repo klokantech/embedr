@@ -17,4 +17,4 @@ Embedding application can be run by docker-compose. This application consists of
 
 Everything can be setup from one place - from the file docker-compose.yml
 
-After the configuration (which will be discussed later) whole embedding app can be run from this folder via `docker-compose up` command
+After the configuration (which is discussed in the README for every docker container) whole embedding app can be run from this folder via `docker-compose up` command
