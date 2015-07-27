@@ -6,6 +6,7 @@ import re
 from urlparse import urlparse
 import time
 import gzip
+import sqlite3
 
 from flask import request, render_template, abort, url_for, g
 import simplejson as json
@@ -16,7 +17,7 @@ from iiif_manifest_factory import ManifestFactory
 from ingest import ingestQueue
 from models import Item, Batch, Task
 from exceptions import NoItemInDb, ErrorItemImport
-from helper import prepareTileSources, getCloudSearch
+from helper import prepareTileSources
 
 
 # Tags which can be in Item description
@@ -322,51 +323,49 @@ def ingest():
 		except:
 			abort(404)
 
-		### Take info about completed tasks from Cloud Search ###
-		try:
-			cloudsearch = getCloudSearch(app.config['CLOUDSEARCH_BATCH_DOMAIN'], 'search')
-			results = cloudsearch.search(q='batch_id:%s' % batch_id, parser='structured', size=500)
-			finished_items = {}
-			
-			while results:
-				for doc in results.docs:
-					item_id = doc['fields']['item_id']
-				
-					if finished_items.has_key(item_id):
-						finished_items[item_id].append(doc['fields']['status'])
-					else:
-						finished_items[item_id] = [doc['fields']['status']]
-				
-				results = results.next_page()
-	
-		except:
-			return json.dumps({'errors': 'Problem with Cloud Search'}), 404, {'Content-Type': 'application/json'}
-
+		conn = sqlite3.connect(app.config['SQL_DB_URL'])
+		c = conn.cursor()
 		output = []
 		
-		### Traverse through all items in batch, those items which are not stored on Cloud Search yet are pending ###
-		for item_id in batch.items:
+		for item in batch.items:
+			item_id = item['id']
 			tmp = {'id': item_id}
 			
-			if finished_items.has_key(item_id):
-				if 'error' in finished_items[item_id]:
-					tmp['status'] = 'error'
-				elif 'pending' in finished_items[item_id]:
-					tmp['status'] = 'pending'
+			if item.has_key('status') and item['status'] == 'deleted':
+				tmp['status'] = 'deleted'
+				output.append(tmp)
+				continue
+			
+			item_tasks = {}
+			c.execute("SELECT * FROM Tasks WHERE batch_id=%s AND item_id='%s'" % (batch_id, item_id))
+				
+			for task in c.fetchall():
+				task_status = task[3]
+				task_url = task[4]
+				if not item_tasks.has_key(task_url) or (item_tasks.has_key(task_url) and item_tasks[task_url] != 'ok'):
+					item_tasks[task_url] = task_status
+				
+			tmp['urls'] = []
+				
+			for url in item['url']:
+				# actualy ingested url
+				if item_tasks.has_key(url):
+					tmp['urls'].append(item_tasks[url])
+				# ingested url in past
 				else:
-					tmp['status'] = 'ok'
+					tmp['urls'].append('ok')
 				
-				try:
-					if Task(batch_id, item_id, 0).item_tasks_count > len(finished_items[item_id]):
-						tmp['status'] = 'pending'
-				except:
-					pass
-				
-			else:
+			if 'error' in item_tasks.values():
+				tmp['status'] = 'error'
+			elif 'pending' in item_tasks.values():
 				tmp['status'] = 'pending'
+			else:
+				tmp['status'] = 'ok'
 			
 			output.append(tmp)
-					
+		
+		conn.close()
+				
 		return json.JSONEncoder().encode(output), 200, {'Content-Type': 'application/json'}
 		
 	### New ingest ###
@@ -456,7 +455,7 @@ def ingest():
 		batch = Batch()
 
 		### Storing of compressed json with all ingest orders to local disk ###
-		f = gzip.open('/data/batch_%s.gz' % batch.id, 'wb')
+		f = gzip.open('/data/batch/%s.gz' % batch.id, 'wb')
 		f.write(request.data)
 		f.close()
 
@@ -466,7 +465,10 @@ def ingest():
 		for item_data in batch_data:
 			item_id = item_data['id']
 			
-			batch.items.append(item_id)
+			if item_data.has_key('status') and item_data['status'] == 'deleted':
+				batch.items.append({'id': item_id, 'url': '', 'status': 'deleted'})
+			else:
+				batch.items.append({'id': item_id, 'url': item_data['url'], 'status': ''})
 
 			try:
 				old_item = Item(item_id)

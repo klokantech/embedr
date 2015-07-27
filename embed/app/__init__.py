@@ -24,7 +24,7 @@ def app_factory(db_backend=None):
 		DEBUG=os.getenv('DEBUG', False),
 		HOST=os.getenv('HOST', '127.0.0.1'),
 		PORT=int(os.getenv('PORT', 5000)),
-		CLOUDSEARCH_BATCH_DOMAIN=os.getenv('CLOUDSEARCH_BATCH_DOMAIN', '')
+		SQL_DB_URL = os.getenv('SQL_DB_URL', None)
 	)
 	
 	### Db initialization ###

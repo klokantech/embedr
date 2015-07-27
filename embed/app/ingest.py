@@ -9,6 +9,7 @@ import random
 import hashlib
 from datetime import datetime
 import traceback
+import sqlite3
 
 import simplejson as json
 import redis
@@ -16,7 +17,7 @@ from filechunkio import FileChunkIO
 import requests
 
 from app.task_queue import task_queue
-from models import Item, Batch, Task
+from models import Item, Task
 from exceptions import NoItemInDb, ErrorItemImport, ErrorImageIdentify
 from helper import getBucket, getCloudSearch
 
@@ -25,8 +26,8 @@ S3_CHUNK_SIZE = int(os.getenv('S3_CHUNK_SIZE', 52428800))
 S3_DEFAULT_FOLDER = os.getenv('S3_DEFAULT_FOLDER', '')
 MAX_TASK_REPEAT = int(os.getenv('MAX_TASK_REPEAT', 1))
 URL_OPEN_TIMEOUT = int(os.getenv('URL_OPEN_TIMEOUT', 10))
-CLOUDSEARCH_ITEM_DOMAIN = os.getenv('CLOUDSEARCH_ITEM_DOMAIN', '')
-CLOUDSEARCH_BATCH_DOMAIN = os.getenv('CLOUDSEARCH_BATCH_DOMAIN', '')
+CLOUDSEARCH_ITEM_DOMAIN = os.getenv('CLOUDSEARCH_ITEM_DOMAIN', None)
+SQL_DB_URL = os.getenv('SQL_DB_URL', None)
 
 
 @task_queue.task
@@ -57,8 +58,11 @@ def ingestQueue(batch_id, item_id, task_id):
 		
 		elif task.type == 'mod':
 			task.status = 'ok'
+		
+		elif task.type == 'cloud_search':
+			task.status = 'ok'
 			
-		else:
+		elif task.type == 'add':
 			if task.url_order > 0:
 				filename = '/tmp/%s_%s' % (item_id, task.url_order)
 				destination = '%s/%s.jp2' % (item_id, task.url_order)
@@ -114,10 +118,6 @@ def ingestQueue(batch_id, item_id, task_id):
 			task.status = 'ok'
 					
 		task.save()
-		
-		cloudsearch = getCloudSearch(CLOUDSEARCH_BATCH_DOMAIN, 'document')
-		cloudsearch.add(hashlib.sha512('%s%s%s' % (batch_id, item_id, task_id)).hexdigest()[:128], {'batch_id': batch_id, 'item_id': item_id, 'task_id': task_id, 'url': task.url, 'status': task.status})
-		cloudsearch.commit()
 
 	except:
 		print '\nFailed attempt numb.: %s\nItem: %s\nUrl: %s\nError message:\n###\n%s###' % (task.attempts + 1, task.item_id, task.url, traceback.format_exc())
@@ -142,22 +142,6 @@ def ingestQueue(batch_id, item_id, task_id):
 		else:
 			task.status = 'error'
 			task.save()
-			
-			i = 0
-			
-			while MAX_TASK_REPEAT > i:
-				try:
-					cloudsearch = getCloudSearch(CLOUDSEARCH_BATCH_DOMAIN, 'document')
-					cloudsearch.add(hashlib.sha512('%s%s%s' % (batch_id, item_id, task_id)).hexdigest()[:128], {'batch_id': batch_id, 'item_id': item_id, 'task_id': task_id, 'url': task.url, 'status': task.status})
-					cloudsearch.commit()
-					break
-				except:
-					if i < MAX_TASK_REPEAT:
-						i += 1
-						rand = (i * 60) + random.randint((i * 60), (i * 60 * 2))
-						time.sleep(rand)
-					
-					continue
 	
 	if task.increment_finished_item_tasks() >= task.item_tasks_count:
 		finalizeItem(batch_id, item_id, task.item_tasks_count)
@@ -172,8 +156,14 @@ def finalizeItem(batch_id, item_id, item_tasks_count):
 		item_tasks.append(Task(batch_id, item_id, task_order))
 	
 	# the task with highest id for the specific item has all item data
-	item_data = item_tasks[-1].item_data
+	last_task = item_tasks[-1]
+	item_data = last_task.item_data
 	item_data['timestamp'] = datetime.utcnow().isoformat("T") + "Z"
+	
+	if item_data.has_key('status') and item_data['status'] == 'deleted':
+		whole_item_delete = True
+	else:
+		whole_item_delete = False
 	
 	try:
 		old_item = Item(item_id)
@@ -181,90 +171,94 @@ def finalizeItem(batch_id, item_id, item_tasks_count):
 		old_item = None
 
 	if old_item:
-		if item_data.has_key('status') and item_data['status'] == 'deleted':
-			i = 0
-			
-			while MAX_TASK_REPEAT > i:
-				try:
-					cloudsearch = getCloudSearch(CLOUDSEARCH_ITEM_DOMAIN, 'document')
-					cloudsearch.delete(hashlib.sha512(item_id).hexdigest()[:128])
-					cloudsearch.commit()
-					break
-				except:
-					if i < MAX_TASK_REPEAT:
-						i += 1
-						rand = (i * 60) + random.randint((i * 60), (i * 60 * 2))
-						time.sleep(rand)
-					
-					continue
-			
-			if MAX_TASK_REPEAT > i:
-				old_item.delete()
-			else:
-				item_tasks[-1].status = 'error'
-				item_tasks[-1].save()
-			
-			return
-		else:
+		if not whole_item_delete:
 			item_data['image_meta'] = old_item.image_meta
 	else:
 		item_data['image_meta'] = {}
 	
 	error = False
 	
-	for task in item_tasks:
-		if task.status == 'pending' or task.status == 'error':
-			error = True
-		# modification tasks never changes image_meta
-		elif task.type == 'mod':
-			pass
-		elif task.status == 'deleted':
-			# if the image is being realy deleted not only being reshaffled
-			if not task.url in item_data['url']:
-				item_data['image_meta'].pop(task.url, None)
-		elif task.status == 'ok':
-			item_data['image_meta'][task.url] = task.image_meta
+	if not whole_item_delete:
+		for task in item_tasks:
+			if task.status == 'pending' or task.status == 'error':
+				error = True
+			# modification tasks never changes image_meta
+			elif task.type == 'mod':
+				pass
+			elif task.status == 'deleted':
+				# if the image is being really deleted not only being reshuffled
+				if not task.url in item_data['url']:
+					item_data['image_meta'].pop(task.url, None)
+			elif task.status == 'ok':
+				item_data['image_meta'][task.url] = task.image_meta
 
 	if not error:
-		item = Item(item_id, item_data)
-		i = 0
-		ordered_image_meta = []
+		if not (old_item and whole_item_delete):
+			item = Item(item_id, item_data)
+			ordered_image_meta = []
 		
-		for url in item.url:
-			tmp = item.image_meta[url]
-			tmp['url'] = url
-			ordered_image_meta.append(tmp)
+			for url in item.url:
+				tmp = item.image_meta[url]
+				tmp['url'] = url
+				ordered_image_meta.append(tmp)
 			
-		while MAX_TASK_REPEAT > i:
+		if CLOUDSEARCH_ITEM_DOMAIN is not None:
 			try:
 				cloudsearch = getCloudSearch(CLOUDSEARCH_ITEM_DOMAIN, 'document')
-				cloudsearch.add(hashlib.sha512(item_id).hexdigest()[:128], {'id': item.id, 'title': item.title, 'creator': item.creator, 'source': item.source, 'institution': item.institution, 'institution_link': item.institution_link, 'license': item.license, 'description': item.description, 'url': json.dumps(item.url), 'timestamp': item.timestamp, 'image_meta': json.dumps(ordered_image_meta)})
+				
+				if old_item and whole_item_delete:
+					cloudsearch.delete(hashlib.sha512(item_id).hexdigest()[:128])
+				else:
+					cloudsearch.add(hashlib.sha512(item_id).hexdigest()[:128], {'id': item.id, 'title': item.title, 'creator': item.creator, 'source': item.source, 'institution': item.institution, 'institution_link': item.institution_link, 'license': item.license, 'description': item.description, 'url': json.dumps(item.url), 'timestamp': item.timestamp, 'image_meta': json.dumps(ordered_image_meta)})
+				
 				cloudsearch.commit()
-				break
-			except:
-				if i < MAX_TASK_REPEAT:
-					i += 1
-					rand = (i * 60) + random.randint((i * 60), (i * 60 * 2))
-					time.sleep(rand)
-
-				continue
 			
-		if MAX_TASK_REPEAT > i:
-			item.save()
-			print "Item '%s' finalized" % item.id
-		else:
-			item_tasks[-1].status = 'error'
-			item_tasks[-1].save()
+			except:
+				if last_task.attempts < MAX_TASK_REPEAT * 2:
+					print '\nFailed Cloud Search attempt numb.: %s\nItem: %s\nError message:\n###\n%s###' % (last_task.attempts + 1, task.item_id, traceback.format_exc())
+					last_task.attempts += 1
+					last_task.status = 'pending'
+					last_task.type = 'cloud_search'
+					last_task.save()
+					rand = (last_task.attempts * 60) + random.randint(last_task.attempts * 60, last_task.attempts * 60 * 2)
+
+					return ingestQueue.apply_async(args=[batch_id, item_id, last_task.task_id], countdown=rand)
+				else:
+					last_task.status = 'error'
+					last_task.save()
+		
+		conn = sqlite3.connect(SQL_DB_URL)
+		c = conn.cursor()
+		
+		if last_task.status == 'error':
 			cleanErrItem(item_id, len(item_data['image_meta']))
 			print "Item '%s' failed" % item_id
-
+		elif old_item and whole_item_delete:
+			old_item.delete()
+			c.execute("DELETE FROM Items WHERE id=?", (item_id,))
+			print "Item '%s' deleted" % item_id
+		else:
+			item.save()
+			c.execute("DELETE FROM Items WHERE id=?", (item_id,))
+			c.execute("INSERT INTO Items VALUES (?,?,?,?,?,?,?,?,?,?,?)", (item.id, item.title, item.creator, item.source, item.institution, item.institution_link, item.license, item.description, json.dumps(item.url), json.dumps(item.image_meta), item.timestamp))
+			print "Item '%s' finalized" % item_id
+		
+		conn.commit()
+		conn.close()
+	
 	else:
 		cleanErrItem(item_id, len(item_data['image_meta']))
 		print "Item '%s' failed" % item_id
 
-	# clean local database
+	conn = sqlite3.connect(SQL_DB_URL)
+	c = conn.cursor()
+	
 	for task in item_tasks:
+		c.execute("INSERT INTO Tasks VALUES (?,?,?,?,?)", (task.task_id, task.batch_id, task.item_id, task.status, task.url))
 		task.delete()
+	
+	conn.commit()
+	conn.close()
 	
 	return
 
@@ -300,6 +294,15 @@ def cleanErrItem(item_id, count):
 
 	try:
 		Item(item_id).delete()
+	except:
+		pass
+	
+	try:
+		conn = sqlite3.connect(SQL_DB_URL)
+		c = conn.cursor()
+		c.execute("DELETE FROM Items WHERE id=?", (item_id,))
+		conn.commit()
+		conn.close()
 	except:
 		pass
 	
