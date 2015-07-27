@@ -17,4 +17,13 @@ Embedding application can be run by docker-compose. This application consists of
 
 Everything can be setup from one place - from the file docker-compose.yml
 
-After the configuration (which is discussed in the README for every docker container) whole embedding app can be run from this folder via `docker-compose up` command
+After the configuration (which is discussed in this file and in the README for every docker container) whole embedding app can be run from this folder via `docker-compose up` command
+
+*Steps to run embed application*
+
+*1) Create folder for source code on some EC2 machine
+*2) Clone this git repository into previously created folder
+*3) Configure `docker-compose.yml`, fill your AWS credentials and set S3 bucket and Cloud Search domain with correct information
+*4) Create data folder with `sql` subfolder in current folder
+*5) Run script 'db_sql_create.py' which create sqlite database which is primary used as backup database to redis
+*6) Run `docker-compose up` command
