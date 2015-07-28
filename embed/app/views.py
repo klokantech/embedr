@@ -15,7 +15,7 @@ import bleach
 
 from iiif_manifest_factory import ManifestFactory
 from ingest import ingestQueue
-from models import Item, Batch, Task
+from models import Item, Task
 from exceptions import NoItemInDb, ErrorItemImport
 from helper import prepareTileSources
 
@@ -318,46 +318,79 @@ def ingest():
 		if batch_id is None:
 			abort(404)
 		
+		conn = sqlite3.connect(app.config['SQL_DB_URL'])
+		c = conn.cursor()
+		c.execute("SELECT batch_data FROM Batch WHERE batch_id=?", (batch_id,))
+
 		try:
-			batch = Batch(batch_id)
+			batch_data = json.loads(c.fetchone()[0])
 		except:
 			abort(404)
 
-		conn = sqlite3.connect(app.config['SQL_DB_URL'])
-		c = conn.cursor()
 		output = []
 		
-		for item in batch.items:
+		for item in batch_data:
 			item_id = item['id']
 			tmp = {'id': item_id}
 			
+			item_tasks = []
+			item_tasks_status = {}
+			
+			item_task_count = 1
+			task_order = 0
+			
+			while item_task_count > task_order:
+				try:
+					task = Task(batch_id, item_id, task_order)
+					item_tasks.append(task)
+					item_task_count = task.item_tasks_count
+					task_order += 1
+					
+					if not item_tasks_status.has_key(task.url) or (item_tasks_status.has_key(task.url) and item_tasks_status[task.url] != 'ok'):
+						item_tasks_status[task.url] = task.status
+				except:
+					break
+
+			if len(item_tasks) == 0:
+				# tasks are in sqlite
+				c.execute("SELECT * FROM Task WHERE batch_id=? AND item_id=?", (batch_id, item_id))
+
+				for task in c.fetchall():
+					task_status = task[3]
+					task_url = task[4]
+				
+					if not item_tasks_status.has_key(task_url) or (item_tasks_status.has_key(task_url) and item_tasks_status[task_url] != 'ok'):
+						item_tasks_status[task_url] = task_status
+			else:
+				#if item tasks are finished move them from redis to sqlite
+				if not 'pending' in item_tasks_status.values():
+					for task in item_tasks:
+						c.execute("INSERT INTO Task VALUES (?,?,?,?,?)", (task.task_id, task.batch_id, task.item_id, task.status, task.url))
+						task.delete()
+					
+					conn.commit()
+
 			if item.has_key('status') and item['status'] == 'deleted':
 				tmp['status'] = 'deleted'
 				output.append(tmp)
 				continue
-			
-			item_tasks = {}
-			c.execute("SELECT * FROM Tasks WHERE batch_id=%s AND item_id='%s'" % (batch_id, item_id))
-				
-			for task in c.fetchall():
-				task_status = task[3]
-				task_url = task[4]
-				if not item_tasks.has_key(task_url) or (item_tasks.has_key(task_url) and item_tasks[task_url] != 'ok'):
-					item_tasks[task_url] = task_status
 				
 			tmp['urls'] = []
 				
 			for url in item['url']:
 				# actualy ingested url
-				if item_tasks.has_key(url):
-					tmp['urls'].append(item_tasks[url])
+				if item_tasks_status.has_key(url):
+					tmp['urls'].append(item_tasks_status[url])
 				# ingested url in past
 				else:
 					tmp['urls'].append('ok')
-				
-			if 'error' in item_tasks.values():
+			
+			if len(tmp['urls']) == 1:
+				tmp.pop('urls', None)
+			
+			if 'error' in item_tasks_status.values():
 				tmp['status'] = 'error'
-			elif 'pending' in item_tasks.values():
+			elif 'pending' in item_tasks_status.values():
 				tmp['status'] = 'pending'
 			else:
 				tmp['status'] = 'ok'
@@ -380,9 +413,6 @@ def ingest():
 
 		if type(batch_data) is not list or len(batch_data) == 0:
 			abort(404)
-		
-		if len(batch_data) > 10000:
-			return json.dumps({'errors': 'maximum number of items is 10 000'}), 404, {'Content-Type': 'application/json'}
 		
 		item_ids = []
 		errors = []
@@ -451,11 +481,18 @@ def ingest():
 		
 		if errors:
 			return json.dumps({'errors': errors}), 404, {'Content-Type': 'application/json'}
-			
-		batch = Batch()
+		
+		conn = sqlite3.connect(app.config['SQL_DB_URL'])
+		c = conn.cursor()
+		c.execute("INSERT INTO Batch(batch_data) VALUES (?)", (json.dumps(batch_data), ))
+		
+		batch_id = c.lastrowid
+		
+		conn.commit()
+		conn.close()
 
 		### Storing of compressed json with all ingest orders to local disk ###
-		f = gzip.open('/data/batch/%s.gz' % batch.id, 'wb')
+		f = gzip.open('/data/batch/%s.gz' % batch_id, 'wb')
 		f.write(request.data)
 		f.close()
 
@@ -464,11 +501,6 @@ def ingest():
 		### Processing items from ingest one by one ###
 		for item_data in batch_data:
 			item_id = item_data['id']
-			
-			if item_data.has_key('status') and item_data['status'] == 'deleted':
-				batch.items.append({'id': item_id, 'url': '', 'status': 'deleted'})
-			else:
-				batch.items.append({'id': item_id, 'url': item_data['url'], 'status': ''})
 
 			try:
 				old_item = Item(item_id)
@@ -483,7 +515,7 @@ def ingest():
 					
 					for url in old_item.url:
 						data = {'url': url, 'item_id': item_id, 'item_tasks_count': len(old_item.url), 'url_order': task_order, 'type': 'del'}
-						task = Task(batch.id, item_id, task_order, data)
+						task = Task(batch_id, item_id, task_order, data)
 						tasks.append(task)
 						task_order += 1
 				else:
@@ -531,14 +563,14 @@ def ingest():
 					### No change in url, change in other data possible ###
 					if not update_list:
 						data = {'item_id': item_id, 'type': 'mod', 'item_tasks_count': 1}
-						task = Task(batch.id, item_id, 0, data)
+						task = Task(batch_id, item_id, 0, data)
 						tasks.append(task)
 					else:
 						task_order = 0
 						
 						for data in update_list:
 							data['item_tasks_count'] = len(update_list)
-							task = Task(batch.id, item_id, task_order, data)
+							task = Task(batch_id, item_id, task_order, data)
 							tasks.append(task)
 							task_order += 1
 						
@@ -548,7 +580,7 @@ def ingest():
 				
 					for url in item_data['url']:
 						data = {'url': url, 'item_id': item_id, 'url_order': task_order, 'item_data': item_data, 'item_tasks_count': len(item_data['url']), 'type': 'add'}
-						task = Task(batch.id, item_id, task_order, data)
+						task = Task(batch_id, item_id, task_order, data)
 						tasks.append(task)
 						task_order += 1
 					
@@ -559,11 +591,9 @@ def ingest():
 			if old_item:
 				old_item.lock = True
 				old_item.save()
-			
-		batch.save()
 
 		### Putting all tasks to the queue ###
 		for task in tasks:
-			ingestQueue.delay(batch.id, task.item_id, task.task_id)
+			ingestQueue.delay(batch_id, task.item_id, task.task_id)
 		
-	return json.JSONEncoder().encode({'batch_id': batch.id}), 200, {'Content-Type': 'application/json'}
+	return json.JSONEncoder().encode({'batch_id': batch_id}), 200, {'Content-Type': 'application/json'}

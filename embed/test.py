@@ -7,7 +7,7 @@ import fakeredis
 import simplejson as json
 
 from app import app_factory
-from app.models import Item, Batch
+from app.models import Item
 
 
 class EmbedTestCase(unittest.TestCase):
@@ -161,9 +161,9 @@ class EmbedTestCase(unittest.TestCase):
 		rv = self.app.get('/ingest')
 		assert rv.status_code == 404
 
-	def test_ingest1(self):
-		rv = self.app.get('/ingest?batch_id=1')
-		assert rv.status_code == 404
+#	def test_ingest1(self):
+#		rv = self.app.get('/ingest?batch_id=1')
+#		assert rv.status_code == 404
 
 #	def test_ingest2(self):
 #		rv = self.app.post('/ingest', headers={'Content-Type': 'application/json'}, data=json.dumps([{"id": "test_id",

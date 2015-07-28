@@ -2,7 +2,6 @@ ingest:
   build: .
   volumes:
     - ../embed:/usr/local/src/hawk/
-    - ./data/sql:/data/sql
   environment:
     - C_FORCE_ROOT=true
     - REDIS_SERVER=media.embedr.eu
@@ -16,5 +15,4 @@ ingest:
     - URL_OPEN_TIMEOUT=10
     - CLOUDSEARCH_REGION=eu-central-1
     - CLOUDSEARCH_ITEM_DOMAIN=hawk
-    - SQL_DB_URL=/data/sql/db.db
   command: bash -c "celery --app=app.task_queue.task_queue worker -E -l warning --workdir=/usr/local/src/hawk/ --autoscale=10,3 --hostname worker1.%h && celery --app=app.task_queue.task_queue worker -E -l warning --workdir=/usr/local/src/hawk/ --autoscale=10,3 --hostname worker2.%h"

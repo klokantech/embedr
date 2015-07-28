@@ -1,0 +1,45 @@
+redis:
+  image: redis
+  ports:
+    - "6379:6379"
+  volumes:
+    - ./data/redis:/data
+    - ./redis/redis.conf:/usr/local/etc/redis/redis.conf
+  command: redis-server /usr/local/etc/redis/redis.conf --appendonly yes --no-appendfsync-on-rewrite yes
+
+embed:
+  build: embed
+  command: bash -c "/usr/bin/python /usr/local/src/hawk/db_sql_create.py && /usr/bin/python /usr/local/src/hawk/run.py"
+  ports:
+    - "5000:5000"
+  links:
+    - redis
+  volumes:
+    - ./embed:/usr/local/src/hawk/
+    - ./data/batch:/data/batch
+    - ./data/sql:/data/sql
+  environment:
+    - SERVER_NAME=6c23162b.ngrok.com
+    - IIIF_SERVER=iiif.embedr.eu
+    - REDIS_SERVER=redis
+    - REDIS_PORT_NUMBER=6379
+    - DEBUG=True
+    - HOST=0.0.0.0
+    - PORT=5000
+    - SQL_DB_URL=/data/sql/db.db
+
+ingest:
+  build: ./ingest
+  links:
+    - redis
+  volumes:
+    - ./embed:/usr/local/src/hawk/
+    - ./data/tmp:/tmp
+    - ./data/jp2:/data/jp2
+  environment:
+    - C_FORCE_ROOT=true
+    - REDIS_SERVER=redis
+    - REDIS_PORT_NUMBER=6379
+    - MAX_TASK_REPEAT=2
+    - URL_OPEN_TIMEOUT=5
+  command: bash -c "celery --app=app.task_queue.task_queue worker -E -l info --workdir=/usr/local/src/hawk/ --autoscale=10,3 --hostname worker1.%h && celery --app=app.task_queue.task_queue worker -E -l info --workdir=/usr/local/src/hawk/ --autoscale=10,3 --hostname worker2.%h && celery --app=app.task_queue.task_queue worker -E -l info --workdir=/usr/local/src/hawk/ --autoscale=10,3 --hostname worker3.%h"

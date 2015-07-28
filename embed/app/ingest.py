@@ -10,6 +10,7 @@ import hashlib
 from datetime import datetime
 import traceback
 import sqlite3
+import shutil
 
 import simplejson as json
 import redis
@@ -24,10 +25,11 @@ from helper import getBucket, getCloudSearch
 
 S3_CHUNK_SIZE = int(os.getenv('S3_CHUNK_SIZE', 52428800))
 S3_DEFAULT_FOLDER = os.getenv('S3_DEFAULT_FOLDER', '')
+S3_HOST = os.getenv('S3_HOST', None)
+S3_DEFAULT_BUCKET = os.getenv('S3_DEFAULT_BUCKET', None)
 MAX_TASK_REPEAT = int(os.getenv('MAX_TASK_REPEAT', 1))
 URL_OPEN_TIMEOUT = int(os.getenv('URL_OPEN_TIMEOUT', 10))
 CLOUDSEARCH_ITEM_DOMAIN = os.getenv('CLOUDSEARCH_ITEM_DOMAIN', None)
-SQL_DB_URL = os.getenv('SQL_DB_URL', None)
 
 
 @task_queue.task
@@ -38,7 +40,11 @@ def ingestQueue(batch_id, item_id, task_id):
 		return -1
 	
 	try:
-		bucket = getBucket()
+		if S3_HOST is not None and S3_DEFAULT_BUCKET is not None:
+			bucket = getBucket()
+		else:
+			# local storage only
+			bucket = None
 		
 		if task.type == 'del':
 			try:
@@ -50,7 +56,11 @@ def ingestQueue(batch_id, item_id, task_id):
 				else:
 					filename = '%s.jp2' % item_id
 
-				bucket.delete_key(S3_DEFAULT_FOLDER + filename)
+				if bucket is not None:
+					bucket.delete_key(S3_DEFAULT_FOLDER + filename)
+				else:
+					os.remove('/data/jp2/%s' % filename)
+					
 			except NoItemInDb:
 				pass
 
@@ -72,8 +82,12 @@ def ingestQueue(batch_id, item_id, task_id):
 			
 			if task.url_order == 1:
 				# folder creation
-				f = bucket.new_key('%s/' % item_id)
-				f.set_contents_from_string('')
+				if bucket is not None:
+					f = bucket.new_key('%s/' % item_id)
+					f.set_contents_from_string('')
+				else:
+					if not os.path.exists('/data/jp2/%s' % item_id):
+						os.makedirs('/data/jp2/%s/' % item_id)
 			
 			r = urllib2.urlopen(task.url, timeout=URL_OPEN_TIMEOUT)
 			f = open(filename, 'wb')
@@ -99,19 +113,24 @@ def ingestQueue(batch_id, item_id, task_id):
 			subprocess.call(['kdu_compress', '-i', '%s.tif' % filename, '-o', '%s.jp2' % filename, '-rate', '0.5', 'Clayers=1', 'Clevels=7', 'Cprecincts={256,256},{256,256},{256,256},{128,128},{128,128},{64,64},{64,64},{32,32},{16,16}', 'Corder=RPCL', 'ORGgen_plt=yes', 'ORGtparts=R', 'Cblk={64,64}', 'Cuse_sop=yes', '-quiet'])
 
 			source_path = '%s.jp2' % filename
-			source_size = os.stat(source_path).st_size
-			chunk_count = int(math.ceil(source_size / float(S3_CHUNK_SIZE)))
-			mp = bucket.initiate_multipart_upload(S3_DEFAULT_FOLDER + destination)
+			
+			if bucket is not None:
+				source_size = os.stat(source_path).st_size
+				chunk_count = int(math.ceil(source_size / float(S3_CHUNK_SIZE)))
+				mp = bucket.initiate_multipart_upload(S3_DEFAULT_FOLDER + destination)
 				
-			for i in range(chunk_count):
-				offset = S3_CHUNK_SIZE * i
-				bytes = min(S3_CHUNK_SIZE, source_size - offset)
+				for i in range(chunk_count):
+					offset = S3_CHUNK_SIZE * i
+					bytes = min(S3_CHUNK_SIZE, source_size - offset)
 					
-				with FileChunkIO(source_path, 'r', offset=offset, bytes=bytes) as fp:
-					mp.upload_part_from_file(fp, part_num=i + 1)
+					with FileChunkIO(source_path, 'r', offset=offset, bytes=bytes) as fp:
+						mp.upload_part_from_file(fp, part_num=i + 1)
 				
-			mp.complete_upload()
-		
+				mp.complete_upload()
+			
+			else:
+				shutil.copy('%s.jp2' % filename, '/data/jp2/%s' % destination)
+			
 			os.remove('%s.jp2' % filename)
 			os.remove('%s.tif' % filename)
 
@@ -227,38 +246,19 @@ def finalizeItem(batch_id, item_id, item_tasks_count):
 					last_task.status = 'error'
 					last_task.save()
 		
-		conn = sqlite3.connect(SQL_DB_URL)
-		c = conn.cursor()
-		
 		if last_task.status == 'error':
 			cleanErrItem(item_id, len(item_data['image_meta']))
 			print "Item '%s' failed" % item_id
 		elif old_item and whole_item_delete:
 			old_item.delete()
-			c.execute("DELETE FROM Items WHERE id=?", (item_id,))
 			print "Item '%s' deleted" % item_id
 		else:
 			item.save()
-			c.execute("DELETE FROM Items WHERE id=?", (item_id,))
-			c.execute("INSERT INTO Items VALUES (?,?,?,?,?,?,?,?,?,?,?)", (item.id, item.title, item.creator, item.source, item.institution, item.institution_link, item.license, item.description, json.dumps(item.url), json.dumps(item.image_meta), item.timestamp))
 			print "Item '%s' finalized" % item_id
-		
-		conn.commit()
-		conn.close()
 	
 	else:
 		cleanErrItem(item_id, len(item_data['image_meta']))
 		print "Item '%s' failed" % item_id
-
-	conn = sqlite3.connect(SQL_DB_URL)
-	c = conn.cursor()
-	
-	for task in item_tasks:
-		c.execute("INSERT INTO Tasks VALUES (?,?,?,?,?)", (task.task_id, task.batch_id, task.item_id, task.status, task.url))
-		task.delete()
-	
-	conn.commit()
-	conn.close()
 	
 	return
 
@@ -294,15 +294,6 @@ def cleanErrItem(item_id, count):
 
 	try:
 		Item(item_id).delete()
-	except:
-		pass
-	
-	try:
-		conn = sqlite3.connect(SQL_DB_URL)
-		c = conn.cursor()
-		c.execute("DELETE FROM Items WHERE id=?", (item_id,))
-		conn.commit()
-		conn.close()
 	except:
 		pass
 	

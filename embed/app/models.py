@@ -89,40 +89,6 @@ class Item():
 		
 	def delete(self):
 		db.delete('item_id@%s' % self.id)
-		
-		
-class Batch():
-	"""Class which defines the Batch model.
-	'id' - item ID which is unique in whole db
-	"""
-	
-	def __init__(self, id=None):
-		self.items = []
-
-		if id is None:
-			self.id = db.incr('batch@id', 1)
-		else:
-			self.id = id
-			
-			data = db.get('batch@id@%s' % id)
-
-			if not data:
-				raise NoItemInDb('No batch with specified id stored in db')
-			else:
-				try:
-					data = json.loads(data)
-					
-					if data.has_key('items'):
-						self.items = data['items']
-						
-						if type(self.items) != list:
-							raise ErrorItemImport('There is an error in the batch`s model representation %s' % data)
-											
-				except:
-					raise ErrorItemImport('There is an error in the batch`s model representation %s' % data)
-	
-	def save(self):
-		db.set('batch@id@%s' % self.id, json.dumps({'items': self.items}))
 
 
 class Task():
