@@ -19,7 +19,7 @@ embed:
     - ./data/batch:/data/batch
     - ./data/sql:/data/sql
   environment:
-    - SERVER_NAME=6c23162b.ngrok.com
+    - SERVER_NAME=127.0.0.1:5000
     - IIIF_SERVER=iiif.embedr.eu
     - REDIS_SERVER=redis
     - REDIS_PORT_NUMBER=6379

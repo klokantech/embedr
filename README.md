@@ -24,6 +24,12 @@ After the configuration (which is discussed in this file and in the README for e
 1. Create folder for source code on some EC2 machine
 2. Clone this git repository into previously created folder
 3. Configure `docker-compose.yml`, fill your AWS credentials and set S3 bucket and Cloud Search domain with correct information
-4. Create data folder with `sql` subfolder in current folder
-5. Run script 'db_sql_create.py' which create sqlite database which is primary used as backup database to redis
-6. Run `docker-compose up` command
+4. Run `docker-compose up` command
+
+*Alternative approach to run embed application without Nginx, Cloud Search and S3(data remains locally only)*
+
+1. Create folder for source code on some EC2 machine
+2. Clone this git repository into previously created folder
+3. Run `docker-compose -f docker-compose-local.yml up` command
+
+Embed application will be available on `http://127.0.0.1:5000/` in this case.
