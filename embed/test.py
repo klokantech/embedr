@@ -159,7 +159,7 @@ class EmbedTestCase(unittest.TestCase):
 
 	def test_ingest0(self):
 		rv = self.app.get('/ingest')
-		assert rv.status_code == 404
+		assert rv.status_code == 400
 
 #	def test_ingest1(self):
 #		rv = self.app.get('/ingest?batch_id=1')
@@ -186,77 +186,77 @@ class EmbedTestCase(unittest.TestCase):
 
 	def test_ingest4(self):
 		rv = self.app.post('/ingest', headers={'Content-Type': 'application/json'}, data=json.dumps([{"id": "@test_id"}]))
-		assert rv.status_code == 404
+		assert rv.status_code == 400
 		assert '''{"errors": ["The item num. 0 must have valid ID", "The item num. 0 doesn't have url field, or it isn't a list or a list is empty"]}''' in rv.data
 
 	def test_ingest5(self):
 		rv = self.app.post('/ingest', headers={'Content-Type': 'application/json'}, data=json.dumps([{"id": "test_id@"}]))
-		assert rv.status_code == 404
+		assert rv.status_code == 400
 		assert '''{"errors": ["The item num. 0 must have valid ID", "The item num. 0 doesn't have url field, or it isn't a list or a list is empty"]}''' in rv.data
 
 	def test_ingest6(self):
 		rv = self.app.post('/ingest', headers={'Content-Type': 'application/json'}, data=json.dumps([{"id": "/test_id"}]))
-		assert rv.status_code == 404
+		assert rv.status_code == 400
 		assert '''{"errors": ["The item num. 0 must have valid ID", "The item num. 0 doesn't have url field, or it isn't a list or a list is empty"]}''' in rv.data
 
 	def test_ingest7(self):
 		rv = self.app.post('/ingest', headers={'Content-Type': 'application/json'}, data=json.dumps([{"id": "\\test_id"}]))
-		assert rv.status_code == 404
+		assert rv.status_code == 400
 		assert '''{"errors": ["The item num. 0 must have valid ID", "The item num. 0 doesn't have url field, or it isn't a list or a list is empty"]}''' in rv.data
 
 	def test_ingest8(self):
 		rv = self.app.post('/ingest', headers={'Content-Type': 'application/json'}, data=json.dumps([{"id": "test_id"}]))
-		assert rv.status_code == 404
+		assert rv.status_code == 400
 		assert '''{"errors": ["The item num. 0 doesn't have url field, or it isn't a list or a list is empty"]}''' in rv.data
 
 	def test_ingest9(self):
 		rv = self.app.post('/ingest', headers={'Content-Type': 'application/json'}, data=json.dumps([{"id": "test_id", "url": "test"}]))
-		assert rv.status_code == 404
+		assert rv.status_code == 400
 		assert '''{"errors": ["The item num. 0 doesn't have url field, or it isn't a list or a list is empty"]}''' in rv.data
 
 	def test_ingest10(self):
 		rv = self.app.post('/ingest', headers={'Content-Type': 'application/json'}, data=json.dumps([{"id": "test_id", "url": []}]))
-		assert rv.status_code == 404
+		assert rv.status_code == 400
 		assert '''{"errors": ["The item num. 0 doesn't have url field, or it isn't a list or a list is empty"]}''' in rv.data
 
 	def test_ingest11(self):
 		rv = self.app.post('/ingest', headers={'Content-Type': 'application/json'}, data=json.dumps([{"id": "test_id", "url": ["test"]}]))
-		assert rv.status_code == 404
+		assert rv.status_code == 400
 		assert '''{"errors": ["The 'test' url in the item num. 0 isn't valid url"]}''' in rv.data
 
 	def test_ingest12(self):
 		rv = self.app.post('/ingest', headers={'Content-Type': 'application/json'}, data=json.dumps([{"id": "test_id", "url": ["http://unittest_url.org"], "wrong_field": "test"}]))
-		assert rv.status_code == 404
+		assert rv.status_code == 400
 		assert '''{"errors": ["The item num. 0 has a not allowed field 'wrong_field'"]}''' in rv.data
 
 	def test_ingest13(self):
 		rv = self.app.post('/ingest', headers={'Content-Type': 'application/json'}, data=json.dumps([{"id": "test_id", "url": ["http://unittest_url.org"], "source": "test"}]))
-		assert rv.status_code == 404
+		assert rv.status_code == 400
 		assert '''{"errors": ["The item num. 0 doesn't have valid url 'test' in the Source field"]}''' in rv.data
 
 	def test_ingest14(self):
 		rv = self.app.post('/ingest', headers={'Content-Type': 'application/json'}, data=json.dumps([{"id": "test_id", "url": ["http://unittest_url.org"], "source": "http://unittest_source.org", "institution_link": "test"}]))
-		assert rv.status_code == 404
+		assert rv.status_code == 400
 		assert '''{"errors": ["The item num. 0 doesn't have valid url 'test' in the InstitutionLink field"]}''' in rv.data
 
 	def test_ingest15(self):
 		rv = self.app.post('/ingest', headers={'Content-Type': 'application/json'}, data=json.dumps([{"id": "test_id", "url": ["http://unittest_url.org"], "source": "http://unittest_source.org", "institution_link": "http://unittest_institution_link.org", "license": "test"}]))
-		assert rv.status_code == 404
+		assert rv.status_code == 400
 		assert '''{"errors": ["The item num. 0 doesn't have valid url 'test' in the License field"]}''' in rv.data
 
 	def test_ingest16(self):
 		rv = self.app.post('/ingest', headers={'Content-Type': 'application/json'}, data=json.dumps([{"id": "test_id", "url": ["http://unittest_url.org"], "status": "http://unittest_source.org"}]))
-		assert rv.status_code == 404
+		assert rv.status_code == 400
 		assert '''{"errors": ["The item num. 0 has status, but it isn't set to 'deleted' or there are more fields"]}''' in rv.data
 
 	def test_ingest17(self):
 		rv = self.app.post('/ingest', headers={'Content-Type': 'application/json'}, data=json.dumps([{"id": "test_id", "url": ["http://unittest_url.org"], "status": "deleted"}]))
-		assert rv.status_code == 404
+		assert rv.status_code == 400
 		assert '''{"errors": ["The item num. 0 has status, but it isn't set to 'deleted' or there are more fields"]}''' in rv.data
 
 	def test_ingest18(self):
 		rv = self.app.post('/ingest', headers={'Content-Type': 'application/json'}, data=json.dumps([{"id": "test_id", "status": "http://unittest_source.org"}]))
-		assert rv.status_code == 404
+		assert rv.status_code == 400
 		assert '''{"errors": ["The item num. 0 has status, but it isn't set to 'deleted' or there are more fields"]}''' in rv.data
 
 if __name__ == '__main__':
