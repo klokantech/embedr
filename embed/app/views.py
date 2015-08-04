@@ -325,7 +325,7 @@ def ingest():
 		try:
 			batch_data = json.loads(c.fetchone()[0])
 		except:
-			return "Stored JSON is corrupted", 500
+			return "Batch with provided ID doesn't exists", 400
 		output = []
 		
 		for item in batch_data:
