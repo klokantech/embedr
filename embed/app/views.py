@@ -316,7 +316,7 @@ def ingest():
 		batch_id = request.args.get('batch_id', None)
 
 		if batch_id is None:
-			abort(404)
+			return "The batch ID must be provided", 400
 		
 		conn = sqlite3.connect(app.config['SQL_DB_URL'])
 		c = conn.cursor()
@@ -325,8 +325,7 @@ def ingest():
 		try:
 			batch_data = json.loads(c.fetchone()[0])
 		except:
-			abort(404)
-
+			return "Stored JSON is corrupted", 500
 		output = []
 		
 		for item in batch_data:
@@ -404,15 +403,15 @@ def ingest():
 	### New ingest ###
 	else:
 		if request.headers.get('Content-Type') != 'application/json':
-			abort(404)
+			return "Content-Type must be 'application/json'", 400
 		
 		try:
 			batch_data = json.loads(request.data)
 		except:
-			abort(404)
+			return "Provided JSON is invalid and can't be load", 400
 
 		if type(batch_data) is not list or len(batch_data) == 0:
-			abort(404)
+			return "JSON file must contains a List with at least one item", 400
 		
 		item_ids = []
 		errors = []
@@ -480,7 +479,7 @@ def ingest():
 			batch_data[order] = item
 		
 		if errors:
-			return json.dumps({'errors': errors}), 404, {'Content-Type': 'application/json'}
+			return json.dumps({'errors': errors}), 400, {'Content-Type': 'application/json'}
 		
 		conn = sqlite3.connect(app.config['SQL_DB_URL'])
 		c = conn.cursor()
