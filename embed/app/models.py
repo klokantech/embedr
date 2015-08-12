@@ -111,6 +111,7 @@ class Task():
 		self.type = 'mod'
 		self.item_data = {}
 		self.item_tasks_count = 0
+		self.message = 0
 		
 		safe = True
 		
@@ -143,12 +144,14 @@ class Task():
 			self.item_data = data['item_data']
 		if data.has_key('item_tasks_count'):
 			self.item_tasks_count = data['item_tasks_count']
+		if data.has_key('message'):
+			self.message = data['message']
 		
 		if safe:
 			self.save()
 	
 	def save(self):
-		db.set('batch@id@%s@item@id%s@task@id@%s' % (self.batch_id, self.item_id, self.task_id), json.dumps({'status': self.status, 'url': self.url, 'url_order': self.url_order, 'image_meta': self.image_meta, 'attempts': self.attempts, 'type': self.type, 'item_data': self.item_data, 'item_tasks_count': self.item_tasks_count}))
+		db.set('batch@id@%s@item@id%s@task@id@%s' % (self.batch_id, self.item_id, self.task_id), json.dumps({'status': self.status, 'url': self.url, 'url_order': self.url_order, 'image_meta': self.image_meta, 'attempts': self.attempts, 'type': self.type, 'item_data': self.item_data, 'item_tasks_count': self.item_tasks_count, 'message': self.message}))
 	
 	def increment_finished_item_tasks(self):
 		if self.item_id != '':

@@ -1,6 +1,7 @@
 """Module which provides ingest functionality and which can be run by celery"""
 
 import os
+import sys
 import urllib2
 import math
 import subprocess
@@ -16,6 +17,7 @@ import simplejson as json
 import redis
 from filechunkio import FileChunkIO
 import requests
+import boto.exception
 
 from app.task_queue import task_queue
 from models import Item, Task
@@ -31,6 +33,12 @@ MAX_TASK_REPEAT = int(os.getenv('MAX_TASK_REPEAT', 1))
 URL_OPEN_TIMEOUT = int(os.getenv('URL_OPEN_TIMEOUT', 10))
 CLOUDSEARCH_ITEM_DOMAIN = os.getenv('CLOUDSEARCH_ITEM_DOMAIN', None)
 
+ERR_MESSAGE_CLOUDSEARCH = 5
+ERR_MESSAGE_HTTP = 4
+ERR_MESSAGE_IMAGE = 3
+ERR_MESSAGE_S3 = 2
+ERR_MESSAGE_OTHER = 1
+ERR_MESSAGE_NONE = 0
 
 @task_queue.task
 def ingestQueue(batch_id, item_id, task_id):
@@ -139,6 +147,17 @@ def ingestQueue(batch_id, item_id, task_id):
 		task.save()
 
 	except:
+		exception_type = sys.exc_info()[0]
+
+		if exception_type is urllib2.HTTPError or exception_type is urllib2.URLError:
+			task.message = ERR_MESSAGE_HTTP
+		elif exception_type is subprocess.CalledProcessError:
+			task.message = ERR_MESSAGE_IMAGE
+		elif exception_type is boto.exception.S3ResponseError:
+			task.message = ERR_MESSAGE_S3
+		else:
+			task.message = ERR_MESSAGE_OTHER
+		
 		print '\nFailed attempt numb.: %s\nItem: %s\nUrl: %s\nError message:\n###\n%s###' % (task.attempts + 1, task.item_id, task.url, traceback.format_exc())
 		task.attempts += 1
 		
@@ -244,6 +263,7 @@ def finalizeItem(batch_id, item_id, item_tasks_count):
 					return ingestQueue.apply_async(args=[batch_id, item_id, last_task.task_id], countdown=rand)
 				else:
 					last_task.status = 'error'
+					last_task.message = ERR_MESSAGE_CLOUDSEARCH
 					last_task.save()
 		
 		if last_task.status == 'error':

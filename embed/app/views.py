@@ -14,7 +14,7 @@ from flask import current_app as app
 import bleach
 
 from iiif_manifest_factory import ManifestFactory
-from ingest import ingestQueue
+from ingest import ingestQueue, ERR_MESSAGE_CLOUDSEARCH, ERR_MESSAGE_HTTP, ERR_MESSAGE_IMAGE, ERR_MESSAGE_S3, ERR_MESSAGE_OTHER, ERR_MESSAGE_NONE
 from models import Item, Task
 from exceptions import NoItemInDb, ErrorItemImport
 from helper import prepareTileSources
@@ -39,6 +39,7 @@ id_regular = re.compile(r"""
 # Regex for general url validation
 url_regular = re.compile(ur'(?i)\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>]+|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]+|(\([^\s()<>]+\)))*\)|[^\s`!()\[\]{};:\'".,<>?\xab\xbb\u201c\u201d\u2018\u2019]))')
 
+ERR_MESSAGE_OUTPUT = {ERR_MESSAGE_CLOUDSEARCH: 'Interaction with Cloud Search failed', ERR_MESSAGE_HTTP: 'Download failed', ERR_MESSAGE_IMAGE: 'Image processing failed', ERR_MESSAGE_S3: 'Interaction with S3 failed', ERR_MESSAGE_OTHER: 'Another error'}
 
 #@app.route('/')
 def index():
@@ -334,6 +335,7 @@ def ingest():
 			
 			item_tasks = []
 			item_tasks_status = {}
+			item_tasks_message = {}
 			
 			item_task_count = 1
 			task_order = 0
@@ -347,6 +349,8 @@ def ingest():
 					
 					if not item_tasks_status.has_key(task.url) or (item_tasks_status.has_key(task.url) and item_tasks_status[task.url] != 'ok'):
 						item_tasks_status[task.url] = task.status
+						item_tasks_message[task.url] = task.message
+							
 				except:
 					break
 
@@ -357,14 +361,16 @@ def ingest():
 				for task in c.fetchall():
 					task_status = task[3]
 					task_url = task[4]
+					task_message = task[5]
 				
 					if not item_tasks_status.has_key(task_url) or (item_tasks_status.has_key(task_url) and item_tasks_status[task_url] != 'ok'):
 						item_tasks_status[task_url] = task_status
+						item_tasks_message[task_url] = task_message
 			else:
 				#if item tasks are finished move them from redis to sqlite
 				if not 'pending' in item_tasks_status.values():
 					for task in item_tasks:
-						c.execute("INSERT INTO Task VALUES (?,?,?,?,?)", (task.task_id, task.batch_id, task.item_id, task.status, task.url))
+						c.execute("INSERT INTO Task VALUES (?,?,?,?,?,?)", (task.task_id, task.batch_id, task.item_id, task.status, task.url, task.message))
 						task.delete()
 					
 					conn.commit()
@@ -389,6 +395,15 @@ def ingest():
 			
 			if 'error' in item_tasks_status.values():
 				tmp['status'] = 'error'
+				tmp['message'] = []
+				
+				for message in item_tasks_message.values():
+					if message != ERR_MESSAGE_NONE:
+						tmp['message'].append(ERR_MESSAGE_OUTPUT[message])
+				
+				if len(tmp['message']) == 1:
+					tmp['message'] = tmp['message'][0]
+				
 			elif 'pending' in item_tasks_status.values():
 				tmp['status'] = 'pending'
 			else:
