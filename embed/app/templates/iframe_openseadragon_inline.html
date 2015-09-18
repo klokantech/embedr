@@ -12,7 +12,7 @@
 	<meta name="dc:description" content="{{ item.description }}"/>
 
     <link rel="alternate" type="application/json+oembed" href="{{ url_for('oEmbed', _external=True) }}?url={{ url_for('iFrame', unique_id=item.id, order=order, _external=True) | urlencode }}&format=json" title="{{ item.title }} oEmbed Profile" />
-	<link rel="alternate" type="text/xml+oembed" href="{{ url_for('oEmbed', _external=True) }}?url={{ url_for('iFrame', unique_id=item.id, order=order, _external=True) | urlencode }}&format=xml" title="{{ item.title }} oEmbed Profile" />
+	   <link rel="alternate" type="text/xml+oembed" href="{{ url_for('oEmbed', _external=True) }}?url={{ url_for('iFrame', unique_id=item.id, order=order, _external=True) | urlencode }}&format=xml" title="{{ item.title }} oEmbed Profile" />
 
     <title>{{ item.title }}</title>
 
@@ -23,37 +23,11 @@
   </head>
   <body>
     <div id="map"></div>
-    <div id="title">
-      {% if item.title %}
-        '{{ item.title }}'
-      {% else %}
-          'untitled'
-      {% endif %}
-      |
-      {% if item.creator %}
-          {{ item.creator }}
-      {% else %}
-          creator unknown
-      {% endif %}
-      |
-      {% if item.source %}
-          <a href="{{ item.source }}">{{ item.institution }}</a>
-      {% else %}
-          {{ item.institution }}
-      {% endif %}
-      |
-      {% if "publicdomain" in item.license %}
-          <img src="/static/img/pd.png" />
-          <a href="{{ item.license }}">No rights reserved.</a>
-      {% else %}
-          <img src="/static/img/cc.png" />
-          <a href="{{ item.license }}">Some rights reserved.</a>
-      {% endif %}
-    </div>
     <div id="viewer"></div>
 
     <script src="/static/js/vendor.js"></script>
     <script src="/static/js/openseadragon.min.js"></script>
+    <script src="/static/js/osdregionselect.js"></script>
     <script src="/static/js/viewer.js"></script>
     <script type="text/javascript">
       React.render(React.createElement(Viewer, {id: "{{ item.id }}"}), document.getElementById('viewer'));
@@ -62,6 +36,8 @@
         prefixUrl: "/static/img/",
         zoomInButton: 'zoom-in-button',
         zoomOutButton: 'zoom-out-button',
+        showHomeControl: false,
+        showFullPageControl: false,
         tileSources: {{ tile_sources | tojson | safe }},
         sequenceMode: true
       });

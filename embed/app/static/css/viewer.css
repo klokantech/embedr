@@ -9,12 +9,16 @@
 @font-face {
   font-family: Raleway;
   src: url(fonts/Raleway-ExtraBold.ttf);
-  font-weight: bolder; }
+  font-weight: 800; }
 @font-face {
   font-family: Ubuntu;
   src: url(fonts/Ubuntu-R.ttf);
   font-weight: normal; }
-.button, .rounded__button, .button__embed, .button__zoom, .button__zoom--out, .button__metadata, .button__copy {
+@font-face {
+  font-family: Ubuntu;
+  src: url(fonts/Ubuntu-B.ttf);
+  font-weight: bold; }
+.button, .rounded__button, .button__embed, .button__region, .button__zoom, .button__zoom--out, .button__copy {
   background-color: black;
   height: 40px;
   line-height: 40px;
@@ -22,11 +26,11 @@
   color: white;
   font-weight: bold;
   text-decoration: none; }
-  .button a, .rounded__button a, .button__embed a, .button__zoom a, .button__zoom--out a, .button__metadata a, .button__copy a {
+  .button a, .rounded__button a, .button__embed a, .button__region a, .button__zoom a, .button__zoom--out a, .button__copy a {
     color: white;
     font-weight: bold; }
 
-.rounded__button, .button__embed, .button__zoom, .button__zoom--out, .button__metadata {
+.rounded__button, .button__embed, .button__region, .button__zoom, .button__zoom--out {
   width: 40px;
   border-radius: 40px; }
 
@@ -34,6 +38,11 @@
   position: absolute;
   top: 5px;
   left: 5px; }
+
+.button__region {
+  position: absolute;
+  top: 5px;
+  left: 155px; }
 
 .button__zoom, .button__zoom--out {
   position: absolute;
@@ -43,22 +52,18 @@
 .button__zoom--out {
   left: 105px; }
 
-.button__metadata {
-  position: absolute;
-  top: 5px;
-  left: 155px; }
-
 .button__copy {
-  padding-top: 4px;
-  padding-bottom: 4px;
+  display: inline-block;
+  margin-top: 6px;
   padding-left: 8px;
   padding-right: 8px; }
 
 .button__close {
   position: absolute;
-  right: 0;
-  top: 0;
-  line-height: 0; }
+  right: 5px;
+  top: 5px;
+  line-height: 0;
+  cursor: pointer; }
 
 #detail__image {
   position: fixed;
@@ -75,20 +80,104 @@
   left: 10px;
   top: 50px;
   width: 400px;
-  padding: 20px;
+  padding: 14px 20px;
   background-color: white;
   z-index: 30;
   font-weight: normal;
   font-family: Ubuntu;
-  font-size: 24px;
-  line-height: 30px; }
+  font-size: 18px;
+  line-height: 24px; }
+  .embed__popup p {
+    margin-top: 0;
+    margin-bottom: 10px; }
+
+.viewer .embed__popup {
+  left: 50px;
+  top: 70px; }
 
 .embed__title {
   font-family: Raleway;
-  font-weight: bolder; }
+  font-weight: 800;
+  font-size: 24px;
+  margin-top: 10px;
+  margin-bottom: 10px; }
 
 .embed__box {
-  width: 100%; }
+  width: 100%;
+  margin-bottom: 6px; }
+
+.embed__option {
+  background-color: #f1f1f1;
+  padding: 5px 10px;
+  margin-bottom: 10px; }
+
+p.embed__resize {
+  font-size: 14px;
+  margin-top: 5px;
+  margin-bottom: 5px; }
+  p.embed__resize input {
+    margin-left: 5px;
+    margin-right: 5px;
+    width: 60px; }
+
+.embed__subtitle {
+  font-weight: bold;
+  padding-top: 5px; }
+
+.embed__callout {
+  line-height: 30px; }
+
+.embed__image {
+  max-height: 250px;
+  overflow: hidden; }
+
+.embed__icon {
+  float: left;
+  margin-right: 10px; }
+
+#title {
+  text-align: center;
+  width: 100%;
+  position: absolute;
+  background-color: black;
+  font-family: 'Ubuntu';
+  font-weight: 100;
+  font-size: 14px;
+  line-height: 20px;
+  color: white;
+  z-index: 10;
+  bottom: 0px;
+  padding: 5px 0 7px 0; }
+  #title a {
+    color: white; }
+  #title img {
+    vertical-align: text-bottom; }
+
+#map {
+  width: 100%;
+  height: 100%;
+  position: absolute; }
+
+.viewer__toolbar {
+  display: none; }
+
+#close {
+  background-image: url(/images/close_dark.png);
+  background-size: 14px 14px;
+  height: 14px;
+  width: 14px;
+  display: block;
+  float: right;
+  margin-top: 4px;
+  margin-right: 10px; }
+
+.viewer__toolbar {
+  position: absolute;
+  left: 45px;
+  top: 10px; }
+
+.osd-select-rectangle {
+  border: 2px dashed black; }
 
 body {
   font-family: 'Raleway';
@@ -97,23 +186,5 @@ body {
 a {
   text-decoration: underline;
   color: black; }
-
-#title {
-  text-align: center;
-  width: 100%;
-  position: absolute;
-  background-color: rgba(255, 255, 255, 0.8);
-  z-index: 10;
-  bottom: 0px;
-  padding: 10px 0 7px 0; }
-
-#map {
-  width: 100%;
-  height: 100%;
-  position: absolute;
-  bottom: 35px; }
-
-#viewer {
-  display: none; }
 
 /*# sourceMappingURL=viewer.css.map */
