@@ -1,8 +1,12 @@
+"""Module which defines some useful helper functions"""
+
 import os
 import math
 
 import boto
 from flask import current_app as app
+
+from exceptions import WrongCloudSearchService
 
 S3_HOST = os.getenv('S3_HOST', '')
 S3_DEFAULT_BUCKET = os.getenv('S3_DEFAULT_BUCKET', '')
@@ -10,6 +14,12 @@ CLOUDSEARCH_REGION = os.getenv('CLOUDSEARCH_REGION', '')
 
 
 def prepareTileSources(item, url, order):
+	"""Function which returns item with properly formated data for IIIF zooming.
+	   'item' - item whose data have to be formated
+	   'url' - base url of processed image
+	   'order' - order number of specified image
+	"""
+	
 	if order == 0:
 		filename = item.id
 	else:
@@ -35,10 +45,22 @@ def prepareTileSources(item, url, order):
 
 
 def getBucket():
+	"""Function which returns S3 bucket defined by environment variable"""
+	
 	os.environ['S3_USE_SIGV4'] = 'True'
 	s3 = boto.connect_s3(host=S3_HOST)
 	return s3.get_bucket(S3_DEFAULT_BUCKET)
 
 
-def getCloudSearch(domain):
-	return boto.connect_cloudsearch2(region=CLOUDSEARCH_REGION, sign_request=True).lookup(domain).get_document_service()
+def getCloudSearch(domain, service):
+	"""Function which returns Cloud Search service (document or search)
+	   'domain' - Cloud Search domain to return service for
+	   'service' - type of service, can be document or search
+	"""
+	
+	if service == 'document':
+		return boto.connect_cloudsearch2(region=CLOUDSEARCH_REGION, sign_request=True).lookup(domain).get_document_service()
+	elif service == 'search':
+		return boto.connect_cloudsearch2(region=CLOUDSEARCH_REGION, sign_request=True).lookup(domain).get_search_service()
+	else:
+		raise WrongCloudSearchService('Wrong type of Cloud Search service "%s"' % service)	

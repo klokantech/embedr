@@ -1,10 +1,11 @@
 redis:
   image: redis
-  expose:
-    - "6379"
+  ports:
+    - "6379:6379"
   volumes:
     - ./data/redis:/data
-  command: redis-server --appendonly yes --no-appendfsync-on-rewrite yes
+    - ./redis/redis.conf:/usr/local/etc/redis/redis.conf
+  command: redis-server /usr/local/etc/redis/redis.conf --appendonly yes --no-appendfsync-on-rewrite yes
 
 nginx:
   image: klokantech/nginx
@@ -18,18 +19,21 @@ nginx:
 
 embed:
   build: ./embed
-  command: /usr/local/bin/supervisord -c /etc/supervisord/supervisord.conf
+  command: bash -c "/usr/bin/python /usr/local/src/hawk/db_sql_create.py && /usr/local/bin/supervisord -c /etc/supervisord/supervisord.conf"
   expose:
     - "5000"
   links:
     - redis
   volumes:
     - ./embed:/usr/local/src/hawk/
+    - ./data/batch:/data/batch
+    - ./data/sql:/data/sql
   environment:
     - SERVER_NAME=media.embedr.eu
     - IIIF_SERVER=iiif.embedr.eu
     - REDIS_SERVER=redis
     - REDIS_PORT_NUMBER=6379
+    - SQL_DB_URL=/data/sql/db.db
 
 ingest:
   build: ./ingest
@@ -51,5 +55,4 @@ ingest:
     - URL_OPEN_TIMEOUT=10
     - CLOUDSEARCH_REGION=eu-central-1
     - CLOUDSEARCH_ITEM_DOMAIN=hawk
-    - CLOUDSEARCH_BATCH_DOMAIN=hawk-batch
-  command: bash -c "celery --app=app.task_queue.task_queue worker -E -l info --workdir=/usr/local/src/hawk/ --autoscale=10,3 --hostname worker1.%h && celery --app=app.task_queue.task_queue worker -E -l info --workdir=/usr/local/src/hawk/ --autoscale=10,3 --hostname worker2.%h && celery --app=app.task_queue.task_queue worker -E -l info --workdir=/usr/local/src/hawk/ --autoscale=10,3 --hostname worker3.%h"
+  command: bash -c "celery --app=app.task_queue.task_queue worker -E -l warning --workdir=/usr/local/src/hawk/ --autoscale=10,3 --hostname worker1.%h && celery --app=app.task_queue.task_queue worker -E -l warning --workdir=/usr/local/src/hawk/ --autoscale=10,3 --hostname worker2.%h"

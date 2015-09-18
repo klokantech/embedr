@@ -1,4 +1,4 @@
-"""Module which provides flask aplication factory"""
+"""Module which provides flask embed aplication factory"""
 
 import os
 
@@ -10,6 +10,10 @@ from models import db
 
 
 def app_factory(db_backend=None):
+	"""Function which provides embed application factory. It takes config from environment and returns embed app itself.
+	'db_backend' - type of database backend, can be 'redis' (default) or 'fakeredis'
+	"""
+	
 	app = Flask(__name__)
 
 	app.config.update(
@@ -19,9 +23,11 @@ def app_factory(db_backend=None):
 		REDIS_PORT_NUMBER=int(os.getenv('REDIS_PORT_NUMBER', 6379)),
 		DEBUG=os.getenv('DEBUG', False),
 		HOST=os.getenv('HOST', '127.0.0.1'),
-		PORT=int(os.getenv('PORT', 5000))
+		PORT=int(os.getenv('PORT', 5000)),
+		SQL_DB_URL = os.getenv('SQL_DB_URL', None)
 	)
 	
+	### Db initialization ###
 	if db_backend:
 		db.init_db(db_backend)
 	else:
@@ -35,10 +41,11 @@ def app_factory(db_backend=None):
 	
 	app.extensions['redis'] = db
 
+	### Setting of relation between particular url and view function
 	app.route('/')(views.index)
-	app.route('/<unique_id>')(views.iFrame)
-	app.route('/<unique_id>/<order>')(views.iFrame)
-	app.route('/<unique_id>/manifest.json')(views.iiifMeta)
+	app.route('/<item_id>')(views.iFrame)
+	app.route('/<item_id>/<order>')(views.iFrame)
+	app.route('/<item_id>/manifest.json')(views.iiifMeta)
 	app.route('/oembed', methods=['GET'])(views.oEmbed)
 	app.route('/ingest', methods=['GET', 'POST'])(views.ingest)
 

@@ -1,3 +1,5 @@
+"""Module which provides task queue for ingest"""
+
 from celery_factory import celery_factory
 
 

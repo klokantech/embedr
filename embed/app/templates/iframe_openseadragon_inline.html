@@ -11,8 +11,8 @@
 	<meta name="dc:rights" content="{{ item.license }}"/>
 	<meta name="dc:description" content="{{ item.description }}"/>
 
-    <link rel="alternate" type="application/json+oembed" href="{{ url_for('oEmbed', _external=True) }}?url={{ url_for('iFrame', unique_id=item.id, order=order, _external=True) | urlencode }}&format=json" title="{{ item.title }} oEmbed Profile" />
-	   <link rel="alternate" type="text/xml+oembed" href="{{ url_for('oEmbed', _external=True) }}?url={{ url_for('iFrame', unique_id=item.id, order=order, _external=True) | urlencode }}&format=xml" title="{{ item.title }} oEmbed Profile" />
+    <link rel="alternate" type="application/json+oembed" href="{{ url_for('oEmbed', _external=True) }}?url={{ url_for('iFrame', item_id=item.id, order=order, _external=True) | urlencode }}&format=json" title="{{ item.title }} oEmbed Profile" />
+	<link rel="alternate" type="text/xml+oembed" href="{{ url_for('oEmbed', _external=True) }}?url={{ url_for('iFrame', item_id=item.id, order=order, _external=True) | urlencode }}&format=xml" title="{{ item.title }} oEmbed Profile" />
 
     <title>{{ item.title }}</title>
 

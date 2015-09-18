@@ -5,6 +5,8 @@ import os
 import re
 from urlparse import urlparse
 import time
+import gzip
+import sqlite3
 
 from flask import request, render_template, abort, url_for, g
 import simplejson as json
@@ -12,38 +14,48 @@ from flask import current_app as app
 import bleach
 
 from iiif_manifest_factory import ManifestFactory
-from ingest import ingestQueue
-from models import Item, Batch, Task
+from ingest import ingestQueue, ERR_MESSAGE_CLOUDSEARCH, ERR_MESSAGE_HTTP, ERR_MESSAGE_IMAGE, ERR_MESSAGE_S3, ERR_MESSAGE_OTHER, ERR_MESSAGE_NONE
+from models import Item, Task
 from exceptions import NoItemInDb, ErrorItemImport
 from helper import prepareTileSources
 
 
+# Tags which can be in Item description
 ALLOWED_TAGS = ['b', 'blockquote', 'code', 'em', 'i', 'li', 'ol', 'strong', 'ul']
 
+# Regex for Item ID with order (of image) validation
 item_url_regular = re.compile(r"""
 	^/
-	(?P<unique_id>([-_.:~a-zA-Z0-9]){1,255})
+	(?P<item_id>([-_.:~a-zA-Z0-9]){1,255})
 	/?
 	(?P<order>\d*)
 	""", re.VERBOSE)
 
+# Regex for Item ID validation
 id_regular = re.compile(r"""
 	^([-_.:~a-zA-Z0-9]){1,255}$
 	""", re.VERBOSE)
 
+# Regex for general url validation
 url_regular = re.compile(ur'(?i)\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>]+|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]+|(\([^\s()<>]+\)))*\)|[^\s`!()\[\]{};:\'".,<>?\xab\xbb\u201c\u201d\u2018\u2019]))')
 
-CLOUDSEARCH_BATCH_SIZE = int(os.getenv('CLOUDSEARCH_BATCH_SIZE', 100))
-
+ERR_MESSAGE_OUTPUT = {ERR_MESSAGE_CLOUDSEARCH: 'Interaction with Cloud Search failed', ERR_MESSAGE_HTTP: 'Download failed', ERR_MESSAGE_IMAGE: 'Image processing failed', ERR_MESSAGE_S3: 'Interaction with S3 failed', ERR_MESSAGE_OTHER: 'Another error'}
 
 #@app.route('/')
 def index():
+	"""View function for index page"""
+	
 	return render_template('index.html')
 
 
-#@app.route('/<unique_id>')
-#@app.route('/<unique_id>/<order>')
-def iFrame(unique_id, order=None):
+#@app.route('/<item_id>')
+#@app.route('/<item_id>/<order>')
+def iFrame(item_id, order=None):
+	"""View function for iFrame. Response with html page for zooming on item. If item has more images, particular image can be requested by order.
+	'item_id' - ID of requested Item
+	'order' - order of requested image in Item
+	"""
+	
 	if order is not None:
 		try:
 			order = int(order)
@@ -56,7 +68,7 @@ def iFrame(unique_id, order=None):
 		order = -1
 	
 	try:
-		item = Item(unique_id)
+		item = Item(item_id)
 	except NoItemInDb as err:
 		return err.message, 404
 	except ErrorItemImport as err:
@@ -85,10 +97,14 @@ def iFrame(unique_id, order=None):
 	return render_template('iframe_openseadragon_inline.html', item = item, tile_sources = tile_sources, order = order)
 
 
-#@app.route('/<unique_id>/manifest.json')
-def iiifMeta(unique_id):
+#@app.route('/<item_id>/manifest.json')
+def iiifMeta(item_id):
+	"""View function which returns IIIF manifest for particular Item
+	'item_id' - ID of requested Item
+	"""
+	
 	try:
-		item = Item(unique_id)
+		item = Item(item_id)
 	except NoItemInDb as err:
 		return err.message, 404
 	except ErrorItemImport as err:
@@ -103,7 +119,7 @@ def iiifMeta(unique_id):
 	fac.set_base_image_uri('http://%s' % app.config['IIIF_SERVER'])
 	fac.set_iiif_image_info(2.0, 2)
 	
-	mf = fac.manifest(ident=url_for('iiifMeta', unique_id=unique_id, _external=True), label=item.title)
+	mf = fac.manifest(ident=url_for('iiifMeta', item_id=item_id, _external=True), label=item.title)
 	mf.description = item.description
 	mf.license = item.license
 	
@@ -112,7 +128,7 @@ def iiifMeta(unique_id):
 	mf.set_metadata({"label":"Institution", "value":item.institution})
 	mf.set_metadata({"label":"Institution link", "value":item.institution_link})
 	
-	seq = mf.sequence(ident='http://%s/sequence/s.json' % app.config['SERVER_NAME'], label='Item %s - sequence 1' % unique_id)
+	seq = mf.sequence(ident='http://%s/sequence/s.json' % app.config['SERVER_NAME'], label='Item %s - sequence 1' % item_id)
 
 	count = 0
 	
@@ -127,15 +143,15 @@ def iiifMeta(unique_id):
 		else:
 			height = 1
 	
-		cvs = seq.canvas(ident='http://%s/canvas/c%s.json' % (app.config['SERVER_NAME'], count), label='Item %s - image %s' % (unique_id, count))
+		cvs = seq.canvas(ident='http://%s/canvas/c%s.json' % (app.config['SERVER_NAME'], count), label='Item %s - image %s' % (item_id, count))
 		cvs.set_hw(height, width)
 	
 		anno = cvs.annotation()
 		
 		if count == 0:
-			filename = unique_id
+			filename = item_id
 		else:
-			filename = '%s/%s' % (unique_id, count)
+			filename = '%s/%s' % (item_id, count)
 
 		img = anno.image(ident='/%s/full/full/0/native.jpg' % filename)
 		img.add_service(ident='http://%s/%s' % (app.config['IIIF_SERVER'], filename), context='http://iiif.io/api/image/2/context.json', profile='http://iiif.io/api/image/2/profiles/level2.json')
@@ -150,6 +166,9 @@ def iiifMeta(unique_id):
 
 #@app.route('/oembed', methods=['GET'])
 def oEmbed():
+	"""View function for oembed which returns medatada about Item which can be used to embed this Item to client page. Url is required parameter. Format (json or xml), maxwidth and maxheight are optional."""
+	
+	### Parameters configuration ###
 	url = request.args.get('url', None)
 	
 	if url is None:
@@ -174,7 +193,7 @@ def oEmbed():
 	test = item_url_regular.search(p_url.path)
 		
 	if test:
-		unique_id = test.group('unique_id')
+		item_id = test.group('item_id')
 		order = test.group('order')
 		
 		if order == '':
@@ -184,8 +203,9 @@ def oEmbed():
 	else:
 		return 'Unsupported format of ID', 404
 
+	### Loading of Item from DB with testing ###
 	try:
-		item = Item(unique_id)
+		item = Item(item_id)
 	except NoItemInDb as err:
 		return err.message, 404
 	except ErrorItemImport as err:
@@ -197,6 +217,7 @@ def oEmbed():
 	if order >= len(item.url):
 		return 'Wrong item sequence', 404
 
+	### Size of image configuration ###
 	maxwidth = request.args.get('maxwidth', None)
 	maxheight = request.args.get('maxheight', None)
 
@@ -263,10 +284,11 @@ def oEmbed():
 			width = float(outheight) * ratio
 			height = outheight
 	
+	### Output finalization ###
 	if order == 0:
-		filename = unique_id
+		filename = item_id
 	else:
-		filename = '%s/%s' % (unique_id, order)
+		filename = '%s/%s' % (item_id, order)
 	
 	data = {}
 	data[u'version'] = '1.0'
@@ -288,80 +310,128 @@ def oEmbed():
 
 #@app.route('/ingest', methods=['GET', 'POST'])
 def ingest():
-	# show info about a ingest
+	"""View function for ingest. It takes json with items (by POST) to ingest or batch_id to show batch state."""
+	
+	### Show info about already started ingest (Batch) ###
 	if request.method == 'GET':
 		batch_id = request.args.get('batch_id', None)
 
 		if batch_id is None:
-			abort(404)
+			return "The batch ID must be provided", 400
 		
-		try:
-			batch = Batch(batch_id)
-		except:
-			abort(404)
-	
+		conn = sqlite3.connect(app.config['SQL_DB_URL'])
+		c = conn.cursor()
+		c.execute("SELECT batch_data FROM Batch WHERE batch_id=?", (batch_id,))
 
+		try:
+			batch_data = json.loads(c.fetchone()[0])
+		except:
+			return "Batch with provided ID doesn't exists", 400
 		output = []
 		
-		for item in batch.data:
-			unique_id = item['id']
-			tmp = {'id': unique_id}
+		for item in batch_data:
+			item_id = item['id']
+			tmp = {'id': item_id}
 			
+			item_tasks = []
+			item_tasks_status = {}
+			item_tasks_message = {}
+			
+			item_task_count = 1
+			task_order = 0
+			
+			while item_task_count > task_order:
+				try:
+					task = Task(batch_id, item_id, task_order)
+					item_tasks.append(task)
+					item_task_count = task.item_tasks_count
+					task_order += 1
+					
+					if not item_tasks_status.has_key(task.url) or (item_tasks_status.has_key(task.url) and item_tasks_status[task.url] != 'ok'):
+						item_tasks_status[task.url] = task.status
+						item_tasks_message[task.url] = task.message
+							
+				except:
+					break
+
+			if len(item_tasks) == 0:
+				# tasks are in sqlite
+				c.execute("SELECT * FROM Task WHERE batch_id=? AND item_id=?", (batch_id, item_id))
+
+				for task in c.fetchall():
+					task_status = task[3]
+					task_url = task[4]
+					task_message = task[5]
+				
+					if not item_tasks_status.has_key(task_url) or (item_tasks_status.has_key(task_url) and item_tasks_status[task_url] != 'ok'):
+						item_tasks_status[task_url] = task_status
+						item_tasks_message[task_url] = task_message
+			else:
+				#if item tasks are finished move them from redis to sqlite
+				if not 'pending' in item_tasks_status.values():
+					for task in item_tasks:
+						c.execute("INSERT INTO Task VALUES (?,?,?,?,?,?)", (task.task_id, task.batch_id, task.item_id, task.status, task.url, task.message))
+						task.delete()
+					
+					conn.commit()
+
 			if item.has_key('status') and item['status'] == 'deleted':
 				tmp['status'] = 'deleted'
 				output.append(tmp)
 				continue
-			
-			if batch.items.has_key(unique_id):
-				item_tasks = {}
 				
-				for task_id in batch.items[unique_id]:
-					task = Task(batch.id, unique_id, task_id)
+			tmp['urls'] = []
 				
-					if not item_tasks.has_key(task.url) or (item_tasks.has_key(task.url) and item_tasks[task.url] != 'ok'):
-						item_tasks[task.url] = task.status
-				
-				tmp['urls'] = []
-				
-				for url in item['url']:
-					# actualy ingested url
-					if item_tasks.has_key(url):
-						tmp['urls'].append(item_tasks[url])
-					# ingested url in past
-					else:
-						tmp['urls'].append('ok')
-				
-				if 'error' in item_tasks.values():
-					tmp['status'] = 'error'
-				elif 'pending' in item_tasks.values():
-					tmp['status'] = 'pending'
+			for url in item['url']:
+				# actualy ingested url
+				if item_tasks_status.has_key(url):
+					tmp['urls'].append(item_tasks_status[url])
+				# ingested url in past
 				else:
-					tmp['status'] = 'ok'
-				
-			else:
+					tmp['urls'].append('ok')
+			
+			if len(tmp['urls']) == 1:
+				tmp.pop('urls', None)
+			
+			if 'error' in item_tasks_status.values():
 				tmp['status'] = 'error'
+				tmp['message'] = []
+				
+				for message in item_tasks_message.values():
+					if message != ERR_MESSAGE_NONE:
+						tmp['message'].append(ERR_MESSAGE_OUTPUT[message])
+				
+				if len(tmp['message']) == 1:
+					tmp['message'] = tmp['message'][0]
+				
+			elif 'pending' in item_tasks_status.values():
+				tmp['status'] = 'pending'
+			else:
+				tmp['status'] = 'ok'
 			
 			output.append(tmp)
-					
+		
+		conn.close()
+				
 		return json.JSONEncoder().encode(output), 200, {'Content-Type': 'application/json'}
 		
-	# new ingest
+	### New ingest ###
 	else:
 		if request.headers.get('Content-Type') != 'application/json':
-			abort(404)
+			return "Content-Type must be 'application/json'", 400
 		
 		try:
 			batch_data = json.loads(request.data)
 		except:
-			abort(404)
+			return "Provided JSON is invalid and can't be load", 400
 
 		if type(batch_data) is not list or len(batch_data) == 0:
-			abort(404)
+			return "JSON file must contains a List with at least one item", 400
 		
 		item_ids = []
 		errors = []
 		
-		# validation
+		### Validation ###
 		for order in range(0, len(batch_data)):
 			item = batch_data[order]
 			
@@ -389,9 +459,9 @@ def ingest():
 			if item.has_key('status'):
 				continue
 			
-			# another tests are usefull only for items which aren't marked to be deleted
+			### Another tests are useful only for items which aren't marked to be deleted ###
 			
-			# convert some input field's names to the internal names
+			### Convert some input field's names to the internal names ###
 			if item.has_key('institutionlink'):
 				item['institution_link'] = item['institutionlink']
 				item.pop('institutionlink', None)
@@ -424,37 +494,50 @@ def ingest():
 			batch_data[order] = item
 		
 		if errors:
-			return json.dumps({'errors': errors}), 404, {'Content-Type': 'application/json'}
+			return json.dumps({'errors': errors}), 400, {'Content-Type': 'application/json'}
 		
-		batch = Batch()
+		conn = sqlite3.connect(app.config['SQL_DB_URL'])
+		c = conn.cursor()
+		c.execute("INSERT INTO Batch(batch_data) VALUES (?)", (json.dumps(batch_data), ))
+		
+		batch_id = c.lastrowid
+		
+		conn.commit()
+		conn.close()
+
+		### Storing of compressed json with all ingest orders to local disk ###
+		f = gzip.open('/data/batch/%s.gz' % batch_id, 'wb')
+		f.write(request.data)
+		f.close()
+
 		tasks = []
 		
-		# processing
+		### Processing items from ingest one by one ###
 		for item_data in batch_data:
-			unique_id = item_data['id']
+			item_id = item_data['id']
 
 			try:
-				old_item = Item(unique_id)
+				old_item = Item(item_id)
 			except NoItemInDb, ErrorItemImport:
 				old_item = None
 			
-			# delete a item
+			### Delete a item ###
 			if item_data.has_key('status') and item_data['status'] == 'deleted':
 				# if there is no item --> nothing is going to be done
 				if old_item:
 					task_order = 0
 					
 					for url in old_item.url:
-						data = {'url': url, 'item_id': unique_id, 'item_tasks_count': len(old_item.url), 'url_order': task_order, 'type': 'del'}
-						task = Task(batch.id, unique_id, task_order, data, task_order)
+						data = {'url': url, 'item_id': item_id, 'item_tasks_count': len(old_item.url), 'url_order': task_order, 'type': 'del'}
+						task = Task(batch_id, item_id, task_order, data)
 						tasks.append(task)
 						task_order += 1
 				else:
 					continue
 			
-			# update or create a new item
+			### Update or create a new item ###
 			else:
-				# sanitising input
+				### Sanitising input ###
 				if item_data.has_key('title'):
 					item_data['title'] = bleach.clean(item_data['title'], tags=[], attributes=[], styles=[], strip=True)
 				if item_data.has_key('creator'):
@@ -464,7 +547,7 @@ def ingest():
 				if item_data.has_key('description'):
 					item_data['description'] = bleach.clean(item_data['description'], tags=ALLOWED_TAGS, attributes=[], styles=[], strip=True)
 					
-				# already stored item
+				### Already stored item ###
 				if old_item:
 					new_count = len(item_data['url'])
 					old_count = len(old_item.url)
@@ -474,7 +557,7 @@ def ingest():
 						if url_order < new_count and url_order < old_count:
 							# different url on the specific position --> overwrite
 							if item_data['url'][url_order] != old_item.url[url_order]:
-								data = {'url': item_data['url'][url_order], 'item_id': unique_id, 'url_order': url_order, 'type': 'add'}
+								data = {'url': item_data['url'][url_order], 'item_id': item_id, 'url_order': url_order, 'type': 'add'}
 								update_list.append(data)
 						else:
 							# end of both lists
@@ -483,58 +566,48 @@ def ingest():
 						
 							# a new url list is shorter than old one --> something to delelete
 							if url_order >= new_count:
-								data = {'url': old_item.url[url_order], 'item_id': unique_id, 'url_order': url_order, 'type': 'del'}
+								data = {'url': old_item.url[url_order], 'item_id': item_id, 'url_order': url_order, 'type': 'del'}
 								update_list.append(data)
 							
 							# a new url list is longer than old one --> something to add
 							elif url_order >= old_count:
-								data = {'url': item_data['url'][url_order], 'item_id': unique_id, 'url_order': url_order, 'type': 'add'}
+								data = {'url': item_data['url'][url_order], 'item_id': item_id, 'url_order': url_order, 'type': 'add'}
 								update_list.append(data)
 					
-					# no change in url, change in other data possible
+					### No change in url, change in other data possible ###
 					if not update_list:
-						data = {'item_id': unique_id, 'type': 'mod', 'item_tasks_count': 1}
-						task = Task(batch.id, unique_id, 0, data)
+						data = {'item_id': item_id, 'type': 'mod', 'item_tasks_count': 1}
+						task = Task(batch_id, item_id, 0, data)
 						tasks.append(task)
 					else:
 						task_order = 0
 						
 						for data in update_list:
 							data['item_tasks_count'] = len(update_list)
-							task = Task(batch.id, unique_id, task_order, data)
+							task = Task(batch_id, item_id, task_order, data)
 							tasks.append(task)
 							task_order += 1
 						
-				# new item
+				### New item ###
 				else:
 					task_order = 0
 				
 					for url in item_data['url']:
-						data = {'url': url, 'item_id': unique_id, 'url_order': task_order, 'item_data': item_data, 'item_tasks_count': len(item_data['url']), 'type': 'add'}
-						task = Task(batch.id, unique_id, task_order, data)
+						data = {'url': url, 'item_id': item_id, 'url_order': task_order, 'item_data': item_data, 'item_tasks_count': len(item_data['url']), 'type': 'add'}
+						task = Task(batch_id, item_id, task_order, data)
 						tasks.append(task)
 						task_order += 1
 					
-			# last task for specific item receives all item`s data
+			### Last task for specific item receives all item`s data ###
 			task.item_data = item_data
 			task.save()
 		
 			if old_item:
 				old_item.lock = True
 				old_item.save()
-		
-		batch.data = batch_data
-		
-		for task in tasks:
-			if not batch.items.has_key(task.item_id):
-				batch.items[task.item_id] = []
 
-			batch.items[task.item_id].append(task.task_id)
-				
-			
-		batch.save()
-
+		### Putting all tasks to the queue ###
 		for task in tasks:
-			ingestQueue.delay(batch.id, task.item_id, task.task_id)
+			ingestQueue.delay(batch_id, task.item_id, task.task_id)
 		
-	return json.JSONEncoder().encode({'batch_id': batch.id}), 200, {'Content-Type': 'application/json'}
+	return json.JSONEncoder().encode({'batch_id': batch_id}), 200, {'Content-Type': 'application/json'}

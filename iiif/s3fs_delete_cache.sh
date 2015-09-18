@@ -50,6 +50,11 @@ while true; do
   #
   act_size=`du -sb $FILES_CDIR | awk '{print $1}'`
   
+  if [ -z "$act_size" ]; then
+    sleep $SLEEP_TIME
+    continue
+  fi
+
   if [ $LIMIT -ge $act_size ]; then
     sleep $SLEEP_TIME
   else

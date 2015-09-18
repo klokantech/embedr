@@ -1,3 +1,5 @@
+"""Module which defines data model"""
+
 import simplejson as json
 
 from exceptions import NoItemInDb, ErrorItemImport
@@ -7,6 +9,11 @@ db = DatabaseWrapper()
 
 
 class Item():
+	"""Class which defines the Item model.
+	'id' - item ID which is unique in whole db
+	'data' - dictionary with Item's metadata
+	"""
+	
 	def __init__(self, id, data=None):
 		self.id = id
 		self.title = ''
@@ -82,48 +89,16 @@ class Item():
 		
 	def delete(self):
 		db.delete('item_id@%s' % self.id)
-		
-		
-class Batch():
-	def __init__(self, id=None):
-		self.items = {}
-		self.data = []
 
-		if id is None:
-			self.id = db.incr('batch@id', 1)
-		else:
-			self.id = id
-			
-			data = db.get('batch@id@%s' % id)
-
-			if not data:
-				raise NoItemInDb('No batch with specified id stored in db')
-			else:
-				try:
-					data = json.loads(data)
-					
-					if data.has_key('items'):
-						self.items = data['items']
-						
-						if type(self.items) != dict:
-							raise ErrorItemImport('There is an error in the batch`s model representation %s' % data)
-					
-					if data.has_key('data'):
-						self.data = data['data']
-						
-						if type(self.data) != list:
-							raise ErrorItemImport('There is an error in the batch`s model representation %s' % data)
-											
-				except:
-					raise ErrorItemImport('There is an error in the batch`s model representation %s' % data)
-	
-	def save(self):
-		db.set('batch@id@%s' % self.id, json.dumps({'items': self.items, 'data': self.data}))
-
-	def increment_finished_items(self):
-		return db.incr('batch@id@%s@finished_items' % (self.id), 1)
 
 class Task():
+	"""Class which defines the Task model.
+	'batch_id' - ID of parent Batch
+	'item_id' - ID of processed Item
+	'task_id' - ID of Task, it is order of tasks for one Item 
+	'data' - dictionary with Task's metadata
+	"""
+	
 	def __init__(self, batch_id, item_id, task_id, data=None):
 		self.task_id = task_id
 		self.batch_id = batch_id
@@ -136,6 +111,7 @@ class Task():
 		self.type = 'mod'
 		self.item_data = {}
 		self.item_tasks_count = 0
+		self.message = 0
 		
 		safe = True
 		
@@ -168,13 +144,18 @@ class Task():
 			self.item_data = data['item_data']
 		if data.has_key('item_tasks_count'):
 			self.item_tasks_count = data['item_tasks_count']
+		if data.has_key('message'):
+			self.message = data['message']
 		
 		if safe:
 			self.save()
 	
 	def save(self):
-		db.set('batch@id@%s@item@id%s@task@id@%s' % (self.batch_id, self.item_id, self.task_id), json.dumps({'status': self.status, 'url': self.url, 'url_order': self.url_order, 'image_meta': self.image_meta, 'attempts': self.attempts, 'type': self.type, 'item_data': self.item_data, 'item_tasks_count': self.item_tasks_count}))
+		db.set('batch@id@%s@item@id%s@task@id@%s' % (self.batch_id, self.item_id, self.task_id), json.dumps({'status': self.status, 'url': self.url, 'url_order': self.url_order, 'image_meta': self.image_meta, 'attempts': self.attempts, 'type': self.type, 'item_data': self.item_data, 'item_tasks_count': self.item_tasks_count, 'message': self.message}))
 	
 	def increment_finished_item_tasks(self):
 		if self.item_id != '':
 			return db.incr('batch@id@%s@item@id%s' % (self.batch_id, self.item_id), 1)
+	
+	def delete(self):
+		db.delete('batch@id@%s@item@id%s@task@id@%s' % (self.batch_id, self.item_id, self.task_id))
