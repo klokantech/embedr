@@ -53,7 +53,7 @@ var EmbedPopup = React.createClass({displayName: "EmbedPopup",
         React.createElement("p", null, "First choose your platform:"), 
         React.createElement("div", {className: "embed__option"}, 
           React.createElement("p", {className: "embed__subtitle"}, "Embed on social media"), 
-          React.createElement("p", {className: "embed__callout"}, React.createElement("img", {src: "static/img/share_small.png", className: "embed__icon"}), "Copy the URL in the address bar.")
+          React.createElement("p", {className: "embed__callout"}, React.createElement("img", {src: "static/img/share_small.png", className: "embed__icon"}), "Copy the URL in the address bar above")
 
         ), 
         React.createElement("div", {className: "embed__option"}, 
