@@ -170,12 +170,11 @@ var RegionPopup = React.createClass({displayName: "RegionPopup",
         React.createElement(RegionBox, {height: this.state.height, width: this.state.width, region: this.props.region, id: this.props.id, metadataText: metadataText}), 
         React.createElement("div", {className: "embed__option"}, 
           React.createElement("p", {className: "embed__resize"}, 
-            "Adjust the size of the image", 
+            "Adjust the size of the image", React.createElement("span", {title: "The maximum width and height are 2056px."}, React.createElement("sup", null, "?")), 
             React.createElement("input", {id: "emded_height", value: this.state.height, onChange: this.setHeight}), 
             "x", 
             React.createElement("input", {id: "emded_width", value: this.state.width, onChange: this.setWidth})
-          ), 
-          React.createElement("p", {className: "embed__resize"}, "The width and height have a maximum of 2056 pixels")
+          )
         ), 
         React.createElement(IIIFImage, {id: id, region: this.props.region, server: "http://iiif.embedr.eu", size: "!400,300"}), 
         React.createElement("p", null, React.createElement("a", {href: "http://embedr.eu/content/how-to-embed"}, "More information about embedding"))
@@ -204,9 +203,9 @@ var RegionPopup = require('./region_popup.jsx')
 
 var makeLicenseHtml = function(license) {
   if (license.indexOf('publicdomain') > 0) {
-    return "<img src='/static/img/pd.png' /> <a href='"+license+"'>No rights reserved.</a>"
+    return "<img src='http://media.embedr.eu/static/img/pd.png' /> <a href='"+license+"'>No rights reserved.</a>"
   } else {
-    return "<img src='/static/img/cc.png' /> <a href='"+license+"'>Some rights reserved.</a>"
+    return "<img src='http://media.embedr.eu/static/img/cc.png' /> <a href='"+license+"'>Some rights reserved.</a>"
   }
 }
 
