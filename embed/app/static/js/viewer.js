@@ -214,11 +214,14 @@ var Viewer = React.createClass({displayName: "Viewer",
     var imageData = res.sequences[0].canvases[0];
     var height = imageData.height;
     var width = imageData.width;
-    var title = res.label;
-    var author = '';
+    var title = res.label || 'Untitled';
+    var author = 'Creator unknown';
     var institution = '';
-    var institutionUrl = '';
+    var institutionUrl = false;
     res.metadata.forEach(function(metadata) {
+      if (!metadata.value) {
+        return;
+      }
       if (metadata.label == 'Author') {
         author = metadata.value;
       }
@@ -229,12 +232,13 @@ var Viewer = React.createClass({displayName: "Viewer",
         institutionUrl = metadata.value;
       }
     });
-    var institutionLink = "<a href='"+institutionUrl+"' target='_blank'>"+institution+"</a>";
+      
+    var institutionHtml = institutionUrl ? ("<a href='"+institutionUrl+"' target='_blank'>"+institution+"</a>") : institution;
     var license = res.license;
     var licenseHtml = makeLicenseHtml(license);
     var metadataText = "'"+title+"' | ";
     var metadataText = metadataText+author+" | ";
-    var metadataText = metadataText+institutionLink+" | ";
+    var metadataText = metadataText+institutionHtml+" | ";
     var metadataText = metadataText+licenseHtml;
     this.setState({
       height: height,
@@ -330,7 +334,7 @@ $(function(){
     $('.viewer__toolbar').show();
   });
   $('#map').on('mouseout', function(e) {
-    if ($(e.toElement).closest('.viewer__toolbar').length > 0) return;
+    if ($(e.toElement).parents('#viewer').length > 0) return;
     $('.viewer__toolbar').hide();
   });
 });
