@@ -18,6 +18,10 @@
   font-family: Ubuntu;
   src: url(fonts/Ubuntu-B.ttf);
   font-weight: bold; }
+@font-face {
+  font-family: Ubuntu;
+  src: url(fonts/Ubuntu-L.ttf);
+  font-weight: lighter; }
 .button, .rounded__button, .button__embed, .button__region, .button__zoom, .button__zoom--out, .button__copy {
   background-color: black;
   height: 40px;
