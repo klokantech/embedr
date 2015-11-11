@@ -7,6 +7,7 @@ from urlparse import urlparse
 import time
 import gzip
 import sqlite3
+import html
 
 from flask import request, render_template, abort, url_for, g
 import simplejson as json
@@ -223,9 +224,13 @@ def oEmbed():
 
 	if maxwidth is not None:
 		maxwidth = int(maxwidth)
-	
+		
 	if maxheight is not None:
 		maxheight = int(maxheight)
+	
+	# make a default max width of 560
+	if maxheight is None and maxheight is None:
+		maxwidth = 560
 
 	if item.image_meta[item.url[order]].has_key('width'):
 		width = int(item.image_meta[item.url[order]]['width'])
@@ -292,11 +297,9 @@ def oEmbed():
 	
 	data = {}
 	data[u'version'] = '1.0'
-	data[u'type'] = 'photo'
+	data[u'type'] = 'rich'
 	data[u'title'] = item.title
-	data[u'url'] = 'http://%s/%s/full/%s/0/native.jpg' % (app.config['IIIF_SERVER'], filename, size)
-	data[u'width'] = '%.0f' % width
-	data[u'height'] = '%.0f' % height
+	data[u'html'] = html.escape`('<iframe src=\"http://media.embedr.eu/%s" width=%s height=%s frameborder="0" allowfullscreen>' % (item_id,width,height))
 	data[u'author_name'] = item.creator
 	data[u'author_url'] = item.source
 	data[u'provider_name'] = item.institution
