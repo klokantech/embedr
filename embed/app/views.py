@@ -299,7 +299,7 @@ def oEmbed():
 	data[u'version'] = '1.0'
 	data[u'type'] = 'rich'
 	data[u'title'] = item.title
-	data[u'html'] = cgi.escape`('<iframe src=\"http://media.embedr.eu/%s" width=%s height=%s frameborder="0" allowfullscreen>' % (item_id,width,height))
+	data[u'html'] = cgi.escape('<iframe src=\"http://media.embedr.eu/%s" width=%s height=%s frameborder="0" allowfullscreen>' % (item_id,width,height))
 	data[u'author_name'] = item.creator
 	data[u'author_url'] = item.source
 	data[u'provider_name'] = item.institution
