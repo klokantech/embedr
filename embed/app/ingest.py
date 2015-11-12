@@ -210,7 +210,23 @@ def finalizeItem(batch_id, item_id, item_tasks_count):
 
 	if old_item:
 		if not whole_item_delete:
-			item_data['image_meta'] = old_item.image_meta
+			# check if there is any change on item
+			if last_task.type == 'mod':
+				modify_test = False
+			
+				for attribute in ['title', 'creator', 'source', 'institution', 'institution_link', 'license', 'description']:
+					if item_data.get(attribute, '') != getattr(old_item, attribute, ''):
+						modify_test = True
+						break
+			
+				# without modification we can finish immediately
+				if not modify_test:
+					old_item.lock = False
+					old_item.save()
+					print "Item '%s' finalized - without modification" % item_id
+					return
+
+   			item_data['image_meta'] = old_item.image_meta
 	else:
 		item_data['image_meta'] = {}
 	
