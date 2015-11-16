@@ -143,17 +143,17 @@ class EmbedTestCase(unittest.TestCase):
 	def test_oEmbed9(self):
 		rv = self.app.get('/oembed?url=http%3A//127.0.0.1%3A5000/test_id/1&maxwidth=50')
 		assert rv.status_code == 200
-		assert '{"provider_url": "http://unittest_institution_link.org", "title": "Unittest title", "url": "http://iiifhawk.klokantech.com/test_id/1/full/50,/0/native.jpg", "author_name": "Unittest creator", "height": "50", "width": "50", "version": "1.0", "author_url": "http://unittest_source.org", "provider_name": "Unittest institution", "type": "photo"}' in rv.data
-
+		assert '{"provider_url": "http://unittest_institution_link.org", "title": "Unittest title", "html": "&lt;iframe src=&quot;http://media.embedr.eu/test_id&quot; width=50 height=50 frameborder=&quot;0&quot; allowfullscreen&gt;", "author_name": "Unittest creator", "version": "1.0", "author_url": "http://unittest_source.org", "provider_name": "Unittest institution", "type": "photo"}' in rv.data
+		
 	def test_oEmbed10(self):
 		rv = self.app.get('/oembed?url=http%3A//127.0.0.1%3A5000/test_id/1&maxheight=50')
 		assert rv.status_code == 200
-		assert '{"provider_url": "http://unittest_institution_link.org", "title": "Unittest title", "url": "http://iiifhawk.klokantech.com/test_id/1/full/,50/0/native.jpg", "author_name": "Unittest creator", "height": "50", "width": "50", "version": "1.0", "author_url": "http://unittest_source.org", "provider_name": "Unittest institution", "type": "photo"}' in rv.data
+		assert '{"provider_url": "http://unittest_institution_link.org", "title": "Unittest title", "html": "&lt;iframe src=&quot;http://media.embedr.eu/test_id&quot; width=50 height=50 frameborder=&quot;0&quot; allowfullscreen&gt;", "author_name": "Unittest creator", "version": "1.0", "author_url": "http://unittest_source.org", "provider_name": "Unittest institution", "type": "photo"}' in rv.data
 
 	def test_oEmbed11(self):
 		rv = self.app.get('/oembed?url=http%3A//127.0.0.1%3A5000/test_id/1&maxheight=25&maxwidth=50')
 		assert rv.status_code == 200
-		assert '{"provider_url": "http://unittest_institution_link.org", "title": "Unittest title", "url": "http://iiifhawk.klokantech.com/test_id/1/full/!50,25/0/native.jpg", "author_name": "Unittest creator", "height": "25", "width": "25", "version": "1.0", "author_url": "http://unittest_source.org", "provider_name": "Unittest institution", "type": "photo"}' in rv.data
+		assert '{"provider_url": "http://unittest_institution_link.org", "title": "Unittest title", "html": "&lt;iframe src=&quot;http://media.embedr.eu/test_id&quot; width=25 height=25 frameborder=&quot;0&quot; allowfullscreen&gt;", "author_name": "Unittest creator", "version": "1.0", "author_url": "http://unittest_source.org", "provider_name": "Unittest institution", "type": "photo"}' in rv.data
 
 	def test_ingest0(self):
 		rv = self.app.get('/ingest')
