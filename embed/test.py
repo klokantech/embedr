@@ -106,11 +106,9 @@ class EmbedTestCase(unittest.TestCase):
 		assert '''<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <oembed>
 	<version>1.0</version>
-    <type>photo</type>
+    <type>Rich</type>
     <title>Unittest title</title>
-    <url>http://iiifhawk.klokantech.com/test_id/1/full/full/0/native.jpg</url>
-    <width>100</width>
-    <height>100</height>
+    <html>&lt;iframe src=&quot;http://media.embedr.eu/test_id&quot; width=100 height=100 frameborder=&quot;0&quot; allowfullscreen&gt;</html>
     <author_name>Unittest creator</author_name>
     <author_url>http://unittest_source.org</author_url>
     <provider_name>Unittest institution</provider_name>
