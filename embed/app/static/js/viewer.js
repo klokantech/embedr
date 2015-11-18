@@ -203,9 +203,9 @@ var RegionPopup = require('./region_popup.jsx')
 
 var makeLicenseHtml = function(license) {
   if (license.indexOf('publicdomain') > 0) {
-    return "<img src='http://media.embedr.eu/static/img/pd.png' /> <a href='"+license+"'>No rights reserved.</a>"
+    return "<img src='http://media.embedr.eu/static/img/pd.png' /> <a href='"+license+"' target='_blank'>No rights reserved.</a>"
   } else {
-    return "<img src='http://media.embedr.eu/static/img/cc.png' /> <a href='"+license+"'>Some rights reserved.</a>"
+    return "<img src='http://media.embedr.eu/static/img/cc.png' /> <a href='"+license+"' target='_blank'>Some rights reserved.</a>"
   }
 }
 

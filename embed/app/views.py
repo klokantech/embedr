@@ -7,6 +7,7 @@ from urlparse import urlparse
 import time
 import gzip
 import sqlite3
+import cgitb
 
 from flask import request, render_template, abort, url_for, g
 import simplejson as json
@@ -46,6 +47,18 @@ def index():
 	"""View function for index page"""
 	
 	return render_template('index.html')
+
+html_escape_table = {
+    "&": "&amp;",
+    '"': "&#34;",
+    "'": "&apos;",
+    ">": "&gt;",
+    "<": "&lt;",
+    }
+
+def html_escape(text):
+    """Produce entities within text."""
+    return "".join(html_escape_table.get(c,c) for c in text)
 
 
 #@app.route('/<item_id>')
@@ -214,20 +227,27 @@ def oEmbed():
 
 	if maxwidth is not None:
 		maxwidth = int(maxwidth)
-	
+		
 	if maxheight is not None:
 		maxheight = int(maxheight)
+	
+	# make a default max width of 560
+	if maxwidth is None and maxheight is None:
+		maxwidth = 560
 
+	# Get the items width, set to -1 if not found
 	if item.image_meta[item.url[order]].has_key('width'):
 		width = int(item.image_meta[item.url[order]]['width'])
 	else:
 		width = -1
 
+	# Get the items height, set to -1 if not found
 	if item.image_meta[item.url[order]].has_key('height'):
 		height = int(item.image_meta[item.url[order]]['height'])
 	else:
 		height = -1
 	
+	# Set ratio if width and height are found, otherwise assume 1:1
 	if width != -1 and height != -1:
 		ratio = float(width) / float(height)
 	else:
@@ -236,44 +256,41 @@ def oEmbed():
 	if width != -1:
 		if maxwidth is not None and maxwidth < width:
 			outwidth = maxwidth
+		elif maxwidth > width:
+			outwidth = maxwidth
+		elif width > 560:
+			outwidth = '560'
 		else:
-			outwidth = 'full'
+			outwidth = width
 	else:
 		if maxwidth is not None:
 			outwidth = maxwidth
 		else:
-			outwidth = 'full'
+			outwidth = '560'
 	
 	if height != -1:
 		if maxheight is not None and maxheight < height:
 			outheight = maxheight
+		elif maxheight > height:
+			outheight = maxheight
+		elif height > 560:
+			outheight = '560'
 		else:
-			outheight = 'full'
+			outheight = height
 	else:
 		if maxheight is not None:
 			outheight = maxheight
 		else:
-			outheight = 'full'
+			outheight = '560'
 	
-	if outwidth == 'full' and outheight == 'full':
-		size = 'full'
-	elif outwidth == 'full':
-		size = ',%s' % outheight
-		width = float(outheight) * ratio
-		height =  outheight
-	elif outheight == 'full':
-		size = '%s,' % outwidth
+	size = '!%s,%s' % (outwidth, outheight)
+
+	if ratio > (float(outwidth) / float(outheight)):
 		width = outwidth
 		height = float(outwidth) / ratio
 	else:
-		size = '!%s,%s' % (outwidth, outheight)
-
-		if ratio > (float(outwidth) / float(outheight)):
-			width = outwidth
-			height = float(outwidth) / ratio
-		else:
-			width = float(outheight) * ratio
-			height = outheight
+		width = float(outheight) * ratio
+		height = outheight
 	
 	### Output finalization ###
 	if order == 0:
@@ -283,11 +300,9 @@ def oEmbed():
 	
 	data = {}
 	data[u'version'] = '1.0'
-	data[u'type'] = 'photo'
+	data[u'type'] = 'rich'
 	data[u'title'] = item.title
-	data[u'url'] = 'http://%s/%s/full/%s/0/native.jpg' % (app.config['IIIF_SERVER'], filename, size)
-	data[u'width'] = '%.0f' % width
-	data[u'height'] = '%.0f' % height
+	data[u'html'] = html_escape('<iframe src="http://media.embedr.eu/%s" width=%s height=%s frameborder="0" allowfullscreen>' % (item_id,int(width),int(height)))
 	data[u'author_name'] = item.creator
 	data[u'author_url'] = item.source
 	data[u'provider_name'] = item.institution
