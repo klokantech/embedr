@@ -9,6 +9,7 @@ import simplejson as json
 from app import app_factory
 from app.models import Item
 
+import logging
 
 class EmbedTestCase(unittest.TestCase):
 	def setUp(self):
@@ -83,25 +84,22 @@ class EmbedTestCase(unittest.TestCase):
 	def test_oEmbed2(self):
 		rv = self.app.get('/oembed?url=http%3A//127.0.0.1%3A5000/test_id/1&format=json')
 		assert rv.status_code == 200
-		assert '{"provider_url": "http://unittest_institution_link.org", "title": "Unittest title", "url": "http://iiifhawk.klokantech.com/test_id/1/full/full/0/native.jpg", "author_name": "Unittest creator", "height": "100", "width": "100", "version": "1.0", "author_url": "http://unittest_source.org", "provider_name": "Unittest institution", "type": "photo"}' in rv.data
+		self.assertEqual('{"provider_url": "http://unittest_institution_link.org", "title": "Unittest title", "html": "&lt;iframe src=&#34;http://media.embedr.eu/test_id&#34; width=100 height=100 frameborder=&#34;0&#34; allowfullscreen&gt;", "author_name": "Unittest creator", "version": "1.0", "author_url": "http://unittest_source.org", "provider_name": "Unittest institution", "type": "rich"}', rv.data, rv.data)
 
 	def test_oEmbed3(self):
 		rv = self.app.get('/oembed?url=http%3A//127.0.0.1%3A5000/test_id/1&format=xml')
 		assert rv.status_code == 200
-		assert '''<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+		self.assertEqual('''<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <oembed>
-	<version>1.0</version>
-    <type>photo</type>
+    <version>1.0</version>
+    <type>rich</type>
     <title>Unittest title</title>
-    <url>http://iiifhawk.klokantech.com/test_id/1/full/full/0/native.jpg</url>
-    <width>100</width>
-    <height>100</height>
+    <html>&lt;iframe src=&#34;http://media.embedr.eu/test_id&#34; width=100 height=100 frameborder=&#34;0&#34; allowfullscreen&gt;</html>
     <author_name>Unittest creator</author_name>
     <author_url>http://unittest_source.org</author_url>
     <provider_name>Unittest institution</provider_name>
     <provider_url>http://unittest_institution_link.org</provider_url>
-</oembed>''' in rv.data
-
+</oembed>''', rv.data, rv.data)
 	def test_oEmbed4(self):
 		rv = self.app.get('/oembed?url=https%3A//127.0.0.1%3A5000/test_id/1&format=json')
 		assert rv.status_code == 404
@@ -125,22 +123,22 @@ class EmbedTestCase(unittest.TestCase):
 	def test_oEmbed8(self):
 		rv = self.app.get('/oembed?url=http%3A//127.0.0.1%3A5000/test_id/1')
 		assert rv.status_code == 200
-		assert '{"provider_url": "http://unittest_institution_link.org", "title": "Unittest title", "url": "http://iiifhawk.klokantech.com/test_id/1/full/full/0/native.jpg", "author_name": "Unittest creator", "height": "100", "width": "100", "version": "1.0", "author_url": "http://unittest_source.org", "provider_name": "Unittest institution", "type": "photo"}' in rv.data
+		self.assertEqual('{"provider_url": "http://unittest_institution_link.org", "title": "Unittest title", "html": "&lt;iframe src=&#34;http://media.embedr.eu/test_id&#34; width=100 height=100 frameborder=&#34;0&#34; allowfullscreen&gt;", "author_name": "Unittest creator", "version": "1.0", "author_url": "http://unittest_source.org", "provider_name": "Unittest institution", "type": "rich"}', rv.data, rv.data)
 
 	def test_oEmbed9(self):
 		rv = self.app.get('/oembed?url=http%3A//127.0.0.1%3A5000/test_id/1&maxwidth=50')
 		assert rv.status_code == 200
-		assert '{"provider_url": "http://unittest_institution_link.org", "title": "Unittest title", "url": "http://iiifhawk.klokantech.com/test_id/1/full/50,/0/native.jpg", "author_name": "Unittest creator", "height": "50", "width": "50", "version": "1.0", "author_url": "http://unittest_source.org", "provider_name": "Unittest institution", "type": "photo"}' in rv.data
-
+		self.assertEqual('{"provider_url": "http://unittest_institution_link.org", "title": "Unittest title", "html": "&lt;iframe src=&#34;http://media.embedr.eu/test_id&#34; width=50 height=50 frameborder=&#34;0&#34; allowfullscreen&gt;", "author_name": "Unittest creator", "version": "1.0", "author_url": "http://unittest_source.org", "provider_name": "Unittest institution", "type": "rich"}',rv.data,rv.data)
+		
 	def test_oEmbed10(self):
 		rv = self.app.get('/oembed?url=http%3A//127.0.0.1%3A5000/test_id/1&maxheight=50')
 		assert rv.status_code == 200
-		assert '{"provider_url": "http://unittest_institution_link.org", "title": "Unittest title", "url": "http://iiifhawk.klokantech.com/test_id/1/full/,50/0/native.jpg", "author_name": "Unittest creator", "height": "50", "width": "50", "version": "1.0", "author_url": "http://unittest_source.org", "provider_name": "Unittest institution", "type": "photo"}' in rv.data
+		self.assertEqual('{"provider_url": "http://unittest_institution_link.org", "title": "Unittest title", "html": "&lt;iframe src=&#34;http://media.embedr.eu/test_id&#34; width=50 height=50 frameborder=&#34;0&#34; allowfullscreen&gt;", "author_name": "Unittest creator", "version": "1.0", "author_url": "http://unittest_source.org", "provider_name": "Unittest institution", "type": "rich"}',rv.data,rv.data)
 
 	def test_oEmbed11(self):
 		rv = self.app.get('/oembed?url=http%3A//127.0.0.1%3A5000/test_id/1&maxheight=25&maxwidth=50')
 		assert rv.status_code == 200
-		assert '{"provider_url": "http://unittest_institution_link.org", "title": "Unittest title", "url": "http://iiifhawk.klokantech.com/test_id/1/full/!50,25/0/native.jpg", "author_name": "Unittest creator", "height": "25", "width": "25", "version": "1.0", "author_url": "http://unittest_source.org", "provider_name": "Unittest institution", "type": "photo"}' in rv.data
+		self.assertEqual('{"provider_url": "http://unittest_institution_link.org", "title": "Unittest title", "html": "&lt;iframe src=&#34;http://media.embedr.eu/test_id&#34; width=25 height=25 frameborder=&#34;0&#34; allowfullscreen&gt;", "author_name": "Unittest creator", "version": "1.0", "author_url": "http://unittest_source.org", "provider_name": "Unittest institution", "type": "rich"}',rv.data,rv.data)
 
 	def test_ingest0(self):
 		rv = self.app.get('/ingest')
@@ -245,4 +243,6 @@ class EmbedTestCase(unittest.TestCase):
 		assert '''{"errors": ["The item num. 0 has status, but it isn't set to 'deleted' or there are more fields"]}''' in rv.data
 
 if __name__ == '__main__':
+	logging.basicConfig(filename="logfile.txt")
+	logging.getLogger( "EmbedTestCase.test_oEmbed2" ).setLevel( logging.DEBUG )
 	unittest.main()

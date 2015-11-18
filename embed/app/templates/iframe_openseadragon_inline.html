@@ -4,15 +4,32 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
     <meta name="google" value="notranslate">
 
-	<meta name="dc:title" content="{{ item.title }}"/>
-	<meta name="dc:creator" content="{{ item.creator }}"/>
-	<meta name="dc:source" content="{{ item.source }}"/>
-	<meta name="dc:publisher" content="{{ item.institution }}"/>
-	<meta name="dc:rights" content="{{ item.license }}"/>
-	<meta name="dc:description" content="{{ item.description }}"/>
+    <meta name="dc:title" content="{{ item.title }}"/>
+    <meta name="dc:creator" content="{{ item.creator }}"/>
+    <meta name="dc:source" content="{{ item.source }}"/>
+    <meta name="dc:publisher" content="{{ item.institution }}"/>
+    <meta name="dc:rights" content="{{ item.license }}"/>
+    <meta name="dc:description" content="{{ item.description }}"/>
 
+    <!-- Open Graph Integrations -->
+    <meta name="og:title" content="{{ item.title }}"/>
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Embedr.eu | Image Embedding Done Right"/>
+    <meta property="og:image" content="http://iiif.embedr.eu/{{ item.id }}/full/!1200,/0/native.jpg"/>
+    <meta property="og:url" content="http://embedr.eu/{{ item.id }}"/>
+    <meta property="og:description" content="{{ item.title }}|{{ item.creator }}|{{ item.institution }}|available under: {{ item.license }}"/>
+    
+    <!-- Twitter Integrations -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:site" content="@embedr_eu">
+    <meta name="twitter:creator" content="{{ item.creator }}">
+    <meta name="twitter:title" content="{{ item.title }}">
+    <meta name="twitter:description" content="{{ item.title }}|{{ item.creator }}|{{ item.institution }}|available under: {{ item.license }}">
+    <meta name="twitter:image" content="http://iiif.embedr.eu/{{ item.id }}/full/!1200,/0/native.jpg"/>
+
+    <!-- oEmbed integration -->
     <link rel="alternate" type="application/json+oembed" href="{{ url_for('oEmbed', _external=True) }}?url={{ url_for('iFrame', item_id=item.id, order=order, _external=True) | urlencode }}&format=json" title="{{ item.title }} oEmbed Profile" />
-	<link rel="alternate" type="text/xml+oembed" href="{{ url_for('oEmbed', _external=True) }}?url={{ url_for('iFrame', item_id=item.id, order=order, _external=True) | urlencode }}&format=xml" title="{{ item.title }} oEmbed Profile" />
+    <link rel="alternate" type="text/xml+oembed" href="{{ url_for('oEmbed', _external=True) }}?url={{ url_for('iFrame', item_id=item.id, order=order, _external=True) | urlencode }}&format=xml" title="{{ item.title }} oEmbed Profile" />
 
     <title>{{ item.title }}</title>
 
@@ -41,6 +58,17 @@
         tileSources: {{ tile_sources | tojson | safe }},
         sequenceMode: true
       });
+    </script>
+    <!-- Google Analytics integration-->
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+      ga('create', 'UA-64494530-1', 'auto');
+      ga('send', 'pageview');
+
     </script>
   </body>
 </html>
