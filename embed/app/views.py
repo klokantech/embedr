@@ -74,9 +74,6 @@ def iFrame(item_id, order=None):
 	except ErrorItemImport as err:
 		return err.message, 500
 	
-	if item.lock is True:
-		return 'The item is being ingested', 404
-	
 	if order >= len(item.url):
 		return 'Wrong item sequence', 404
 	
@@ -109,9 +106,6 @@ def iiifMeta(item_id):
 		return err.message, 404
 	except ErrorItemImport as err:
 		return err.message, 500
-	
-	if item.lock is True:
-		return 'The item is being ingested', 404
 	
 	fac = ManifestFactory()
 	fac.set_base_metadata_uri(app.config['SERVER_NAME'])
@@ -210,9 +204,6 @@ def oEmbed():
 		return err.message, 404
 	except ErrorItemImport as err:
 		return err.message, 500
-	
-	if item.lock is True:
-		return 'The item is being ingested', 404
 		
 	if order >= len(item.url):
 		return 'Wrong item sequence', 404
@@ -601,10 +592,6 @@ def ingest():
 			### Last task for specific item receives all item`s data ###
 			task.item_data = item_data
 			task.save()
-		
-			if old_item:
-				old_item.lock = True
-				old_item.save()
 
 		### Putting all tasks to the queue ###
 		for task in tasks:

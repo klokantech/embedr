@@ -25,7 +25,6 @@ class Item():
 		self.description = ''
 		self.url = []
 		self.image_meta = {}
-		self.lock = False
 		self.timestamp = ''
 		
 		if data:
@@ -71,21 +70,11 @@ class Item():
 			self.description = data['description']
 		if data.has_key('image_meta'):
 			self.image_meta = data['image_meta']
-		if data.has_key('lock'):
-			if data['lock'] == 'True':
-				self.lock = True
-			else:
-				self.lock = False
 		if data.has_key('timestamp'):
 			self.timestamp = data['timestamp']
 
 	def save(self):
-		if self.lock is True:
-			lock = 'True'
-		else:
-			lock = 'False'
-		
-		db.set('item_id@%s' % self.id, json.dumps({'url': self.url, 'title': self.title, 'creator': self.creator, 'source': self.source, 'institution': self.institution, 'institution_link': self.institution_link, 'license': self.license, 'description': self.description, 'image_meta': self.image_meta, 'lock': lock, 'timestamp': self.timestamp}))
+		db.set('item_id@%s' % self.id, json.dumps({'url': self.url, 'title': self.title, 'creator': self.creator, 'source': self.source, 'institution': self.institution, 'institution_link': self.institution_link, 'license': self.license, 'description': self.description, 'image_meta': self.image_meta, 'timestamp': self.timestamp}))
 		
 	def delete(self):
 		db.delete('item_id@%s' % self.id)

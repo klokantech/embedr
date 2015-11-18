@@ -221,8 +221,6 @@ def finalizeItem(batch_id, item_id, item_tasks_count):
 			
 				# without modification we can finish immediately
 				if not modify_test:
-					old_item.lock = False
-					old_item.save()
 					print "Item '%s' finalized - without modification" % item_id
 					return
 
