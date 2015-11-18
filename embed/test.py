@@ -65,21 +65,6 @@ class EmbedTestCase(unittest.TestCase):
 		assert rv.status_code == 404
 		assert 'Wrong item sequence' in rv.data
 
-	def test_iFrame5(self):
-		item = Item('test_id')
-		item.lock = True
-		item.save()
-		
-		rv = self.app.get('/test_id')
-		assert rv.status_code == 404
-		assert 'The item is being ingested' in rv.data
-		
-		item.lock = False
-		item.save()
-		
-		rv = self.app.get('/test_id')
-		assert rv.status_code == 200
-	
 	def test_iiifMeta0(self):
 		rv = self.app.get('/test_id/manifest.json')
 		assert rv.status_code == 200
