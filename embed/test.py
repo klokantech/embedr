@@ -99,7 +99,7 @@ class EmbedTestCase(unittest.TestCase):
 	def test_oEmbed2(self):
 		rv = self.app.get('/oembed?url=http%3A//127.0.0.1%3A5000/test_id/1&format=json')
 		assert rv.status_code == 200
-		self.assertEqual('{"provider_url": "http://unittest_institution_link.org", "title": "Unittest title", "html": "&lt;iframe src=&#34;http://media.embedr.eu/test_id&#34; width=100 height=100 frameborder=&#34;0&#34; allowfullscreen&gt;", "author_name": "Unittest creator", "version": "1.0", "author_url": "http://unittest_source.org", "provider_name": "Unittest institution", "type": "rich"}', rv.data, rv.data)
+		self.assertEqual('{"provider_url": "http://unittest_institution_link.org", "title": "Unittest title", "html": "<iframe src=\\"http://media.embedr.eu/test_id\\" width=100 height=100 frameborder=0 allowfullscreen>", "author_name": "Unittest creator", "version": "1.0", "author_url": "http://unittest_source.org", "provider_name": "Unittest institution", "type": "rich"}', rv.data, rv.data)
 
 	def test_oEmbed3(self):
 		rv = self.app.get('/oembed?url=http%3A//127.0.0.1%3A5000/test_id/1&format=xml')
@@ -109,7 +109,7 @@ class EmbedTestCase(unittest.TestCase):
     <version>1.0</version>
     <type>rich</type>
     <title>Unittest title</title>
-    <html>&lt;iframe src=&#34;http://media.embedr.eu/test_id&#34; width=100 height=100 frameborder=&#34;0&#34; allowfullscreen&gt;</html>
+    <html>&lt;iframe src=&#34;http://media.embedr.eu/test_id&#34; width=100 height=100 frameborder=0 allowfullscreen&gt;</html>
     <author_name>Unittest creator</author_name>
     <author_url>http://unittest_source.org</author_url>
     <provider_name>Unittest institution</provider_name>
@@ -138,22 +138,22 @@ class EmbedTestCase(unittest.TestCase):
 	def test_oEmbed8(self):
 		rv = self.app.get('/oembed?url=http%3A//127.0.0.1%3A5000/test_id/1')
 		assert rv.status_code == 200
-		self.assertEqual('{"provider_url": "http://unittest_institution_link.org", "title": "Unittest title", "html": "&lt;iframe src=&#34;http://media.embedr.eu/test_id&#34; width=100 height=100 frameborder=&#34;0&#34; allowfullscreen&gt;", "author_name": "Unittest creator", "version": "1.0", "author_url": "http://unittest_source.org", "provider_name": "Unittest institution", "type": "rich"}', rv.data, rv.data)
+		self.assertEqual('{"provider_url": "http://unittest_institution_link.org", "title": "Unittest title", "html": "<iframe src=\\"http://media.embedr.eu/test_id\\" width=100 height=100 frameborder=0 allowfullscreen>", "author_name": "Unittest creator", "version": "1.0", "author_url": "http://unittest_source.org", "provider_name": "Unittest institution", "type": "rich"}', rv.data, rv.data)
 
 	def test_oEmbed9(self):
 		rv = self.app.get('/oembed?url=http%3A//127.0.0.1%3A5000/test_id/1&maxwidth=50')
 		assert rv.status_code == 200
-		self.assertEqual('{"provider_url": "http://unittest_institution_link.org", "title": "Unittest title", "html": "&lt;iframe src=&#34;http://media.embedr.eu/test_id&#34; width=50 height=50 frameborder=&#34;0&#34; allowfullscreen&gt;", "author_name": "Unittest creator", "version": "1.0", "author_url": "http://unittest_source.org", "provider_name": "Unittest institution", "type": "rich"}',rv.data,rv.data)
+		self.assertEqual('{"provider_url": "http://unittest_institution_link.org", "title": "Unittest title", "html": "<iframe src=\\"http://media.embedr.eu/test_id\\" width=50 height=50 frameborder=0 allowfullscreen>", "author_name": "Unittest creator", "version": "1.0", "author_url": "http://unittest_source.org", "provider_name": "Unittest institution", "type": "rich"}',rv.data,rv.data)
 		
 	def test_oEmbed10(self):
 		rv = self.app.get('/oembed?url=http%3A//127.0.0.1%3A5000/test_id/1&maxheight=50')
 		assert rv.status_code == 200
-		self.assertEqual('{"provider_url": "http://unittest_institution_link.org", "title": "Unittest title", "html": "&lt;iframe src=&#34;http://media.embedr.eu/test_id&#34; width=50 height=50 frameborder=&#34;0&#34; allowfullscreen&gt;", "author_name": "Unittest creator", "version": "1.0", "author_url": "http://unittest_source.org", "provider_name": "Unittest institution", "type": "rich"}',rv.data,rv.data)
+		self.assertEqual('{"provider_url": "http://unittest_institution_link.org", "title": "Unittest title", "html": "<iframe src=\\"http://media.embedr.eu/test_id\\" width=50 height=50 frameborder=0 allowfullscreen>", "author_name": "Unittest creator", "version": "1.0", "author_url": "http://unittest_source.org", "provider_name": "Unittest institution", "type": "rich"}',rv.data,rv.data)
 
 	def test_oEmbed11(self):
 		rv = self.app.get('/oembed?url=http%3A//127.0.0.1%3A5000/test_id/1&maxheight=25&maxwidth=50')
 		assert rv.status_code == 200
-		self.assertEqual('{"provider_url": "http://unittest_institution_link.org", "title": "Unittest title", "html": "&lt;iframe src=&#34;http://media.embedr.eu/test_id&#34; width=25 height=25 frameborder=&#34;0&#34; allowfullscreen&gt;", "author_name": "Unittest creator", "version": "1.0", "author_url": "http://unittest_source.org", "provider_name": "Unittest institution", "type": "rich"}',rv.data,rv.data)
+		self.assertEqual('{"provider_url": "http://unittest_institution_link.org", "title": "Unittest title", "html": "<iframe src=\\"http://media.embedr.eu/test_id\\" width=25 height=25 frameborder=0 allowfullscreen>", "author_name": "Unittest creator", "version": "1.0", "author_url": "http://unittest_source.org", "provider_name": "Unittest institution", "type": "rich"}',rv.data,rv.data)
 
 	def test_ingest0(self):
 		rv = self.app.get('/ingest')

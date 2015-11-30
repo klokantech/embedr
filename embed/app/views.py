@@ -307,11 +307,12 @@ def oEmbed():
 	else:
 		filename = '%s/%s' % (item_id, order)
 	
+	embed_code = '<iframe src="http://media.embedr.eu/%s" width=%s height=%s frameborder=0 allowfullscreen>' % (item_id,int(width),int(height))
 	data = {}
 	data[u'version'] = '1.0'
 	data[u'type'] = 'rich'
 	data[u'title'] = item.title
-	data[u'html'] = html_escape('<iframe src="http://media.embedr.eu/%s" width=%s height=%s frameborder="0" allowfullscreen>' % (item_id,int(width),int(height)))
+	data[u'html'] = html_escape(embed_code)
 	data[u'author_name'] = item.creator
 	data[u'author_url'] = item.source
 	data[u'provider_name'] = item.institution
@@ -320,6 +321,7 @@ def oEmbed():
 	if format == 'xml':
 		return render_template('oembed_xml.html', data = data), 200, {'Content-Type': 'text/xml'}
 	else:
+		data[u'html'] = embed_code
 		return json.dumps(data), 200, {'Content-Type': 'application/json'}
 
 
