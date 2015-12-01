@@ -18,7 +18,7 @@
     <meta property="og:image" content="http://iiif.embedr.eu/{{ item.id }}/full/!1200,/0/native.jpg"/>
     <meta property="og:url" content="http://embedr.eu/{{ item.id }}"/>
     <meta property="og:description" content="{{ item.title }}|{{ item.creator }}|{{ item.institution }}|available under: {{ item.license }}"/>
-    
+
     <!-- Twitter Integrations -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:site" content="@embedr_eu">
@@ -42,12 +42,11 @@
     <div id="map"></div>
     <div id="viewer"></div>
 
-    <script src="/static/js/vendor.js"></script>
     <script src="/static/js/openseadragon.min.js"></script>
     <script src="/static/js/osdregionselect.js"></script>
     <script src="/static/js/viewer.js"></script>
     <script type="text/javascript">
-      React.render(React.createElement(Viewer, {id: "{{ item.id }}"}), document.getElementById('viewer'));
+      ReactDOM.render(React.createElement(Viewer, {id: "{{ item.id }}", type: window.embedrViewerType}), document.getElementById('viewer'));
       window.viewer = OpenSeadragon({
         id: 'map',
         prefixUrl: "/static/img/",
@@ -55,9 +54,15 @@
         zoomOutButton: 'zoom-out-button',
         showHomeControl: false,
         showFullPageControl: false,
-        tileSources: {{ tile_sources | tojson | safe }},
-        sequenceMode: true
+        tileSources: {{ tile_sources | tojson | safe }}
       });
+      if (window.embedrViewerType === 'nozoom') {
+        window.viewer.gestureSettingsMouse.scrollToZoom = false;
+        window.viewer.gestureSettingsMouse.clickToZoom = false;
+        window.viewer.gestureSettingsMouse.clickToZoom = false;
+        window.viewer.panHorizontal = false;
+        window.viewer.panVertical = false;
+      }
     </script>
     <!-- Google Analytics integration-->
     <script>
