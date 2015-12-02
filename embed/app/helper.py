@@ -41,6 +41,8 @@ def prepareTileSources(item, url, order):
 		
 	item.image_meta[url]['tiles'] = [{'width' : 256, 'height' : 256, 'scaleFactors': scaleFactors}]
 	
+	item.image_meta[url].pop('url', None)
+	
 	return item.image_meta[url]
 
 
