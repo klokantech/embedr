@@ -22,7 +22,7 @@
   font-family: Ubuntu;
   src: url(fonts/Ubuntu-L.ttf);
   font-weight: lighter; }
-.button, .rounded__button, .button__embed, .button__region, .button__zoom, .button__zoom--out, .button__copy {
+.button, .button__rounded {
   background-color: black;
   height: 40px;
   line-height: 40px;
@@ -30,37 +30,21 @@
   color: white;
   font-weight: bold;
   text-decoration: none; }
-  .button a, .rounded__button a, .button__embed a, .button__region a, .button__zoom a, .button__zoom--out a, .button__copy a {
+  .button a, .button__rounded a {
     color: white;
     font-weight: bold; }
 
-.rounded__button, .button__embed, .button__region, .button__zoom, .button__zoom--out {
-  width: 40px;
-  border-radius: 40px; }
-
-.button__embed {
-  position: absolute;
-  top: 5px;
-  left: 5px; }
-
-.button__region {
-  position: absolute;
-  top: 5px;
-  left: 155px; }
-
-.button__zoom, .button__zoom--out {
-  position: absolute;
-  top: 5px;
-  left: 55px; }
-
-.button__zoom--out {
-  left: 105px; }
-
-.button__copy {
+.button__rounded {
   display: inline-block;
-  margin-top: 6px;
-  padding-left: 8px;
-  padding-right: 8px; }
+  width: 40px;
+  height: 40px;
+  border-radius: 40px;
+  margin-right: 10px; }
+
+.result .button__rounded {
+  position: absolute;
+  top: 5px;
+  left: 10px; }
 
 .button__close {
   position: absolute;
@@ -139,6 +123,10 @@ p.embed__resize {
   float: left;
   margin-right: 10px; }
 
+.embed__zoom-control span {
+  font-size: 14px;
+  margin-left: 5px; }
+
 #title {
   text-align: center;
   width: 100%;
@@ -178,6 +166,11 @@ p.embed__resize {
 .viewer__toolbar {
   position: absolute;
   left: 45px;
+  top: 10px; }
+
+.iframe__viewer__toolbar {
+  position: absolute;
+  left: 8px;
   top: 10px; }
 
 .osd-select-rectangle {
