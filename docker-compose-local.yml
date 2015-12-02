@@ -1,9 +1,15 @@
+redisdata:
+  image: "tianon/true"
+  volumes:
+  - /data
+
 redis:
   image: redis
   ports:
     - "6379:6379"
+  volumes_from:
+    - redisdata
   volumes:
-    - ./data/redis:/data
     - ./redis/redis.conf:/usr/local/etc/redis/redis.conf
   command: redis-server /usr/local/etc/redis/redis.conf --appendonly yes --no-appendfsync-on-rewrite yes
 
