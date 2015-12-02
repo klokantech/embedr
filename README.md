@@ -1,12 +1,12 @@
-# Image Embedding Service (IES)
+# Embedr: Image Embedding Service (IES)
 
 [![Build Status](https://travis-ci.org/klokantech/hawk.svg?branch=master)](https://travis-ci.org/klokantech/hawk/branches)
 
-Online service providing images hosted in Europeana portal via IIIF protocol (http://iiif.io). Developed in cooperation with Kennisland as part of Europeana Creative.
+Online service providing images hosted in Europeana portal via IIIF protocol (http://iiif.io). Developed in cooperation with Kennisland as part of Europeana Creative. Running on Amazon cloud infrastructure - publicly available at: http://embedr.eu/
 
 Planned architecture is described in the [wiki](https://github.com/klokantech/hawk/wiki)
 
-![europeana-embedding-service-diagram](https://cloud.githubusercontent.com/assets/59284/6038291/fa652f0a-ac5b-11e4-8a1a-88f91ba5c2b3.jpg)
+![hawk-aws-diagram-embedr](https://cloud.githubusercontent.com/assets/59284/11525883/d056901a-98d6-11e5-8317-9eebcdbe13da.jpeg)
 
 Embedding application can be run by docker-compose. This application consists of four docker containers:
 
