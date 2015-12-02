@@ -13,6 +13,13 @@ redis:
     - ./redis/redis.conf:/usr/local/etc/redis/redis.conf
   command: redis-server /usr/local/etc/redis/redis.conf --appendonly yes --no-appendfsync-on-rewrite yes
 
+iiifserver:
+  image: klokantech/iiifserver-iipimage-jpeg2000
+  ports:
+    - 5001:80
+  volumes:
+    - ./data/jp2:/data/
+
 embed:
   build: embed
   command: bash -c "/usr/bin/python /usr/local/src/hawk/db_sql_create.py && /usr/bin/python /usr/local/src/hawk/run.py"
@@ -26,7 +33,7 @@ embed:
     - ./data/sql:/data/sql
   environment:
     - SERVER_NAME=127.0.0.1:5000
-    - IIIF_SERVER=iiif.embedr.eu
+    - IIIF_SERVER=127.0.0.1:5001
     - REDIS_SERVER=redis
     - REDIS_PORT_NUMBER=6379
     - DEBUG=True
