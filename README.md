@@ -1,6 +1,6 @@
 # Embedr: Image Embedding Service (IES)
 
-[![Build Status](https://travis-ci.org/klokantech/hawk.svg?branch=master)](https://travis-ci.org/klokantech/hawk/branches)
+[![Build Status](https://travis-ci.org/klokantech/embedr.svg?branch=master)](https://travis-ci.org/klokantech/embedr/branches)
 
 Online service providing images hosted in Europeana portal via IIIF protocol (http://iiif.io). Developed in cooperation with Kennisland as part of Europeana Creative. Running on Amazon cloud infrastructure - publicly available at: http://embedr.eu/
 
