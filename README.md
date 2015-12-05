@@ -35,9 +35,7 @@ This will run the embed application without Nginx, Cloud Search and S3 (data rem
 
 Embed application will be available on `http://127.0.0.1:5000/` - you should see there a welcome page with EuropeanaCreative logo. Cool!
 
-Now you can try to push in a file with the [Ingest API](https://github.com/klokantech/embedr/wiki/C.Ingest):
-
-For example:
+Now you can try to push in a file with the [Ingest API](https://github.com/klokantech/embedr/wiki/C.Ingest). For example:
 ```
 curl -H "Content-Type: application/json" -X POST -d '[{"id":"SK-A-4118","url":["https://upload.wikimedia.org/wikipedia/commons/e/e9/Aelbert_Cuyp_-_Rivierlandschap_met_ruiters_-_Google_Art_Project.jpg"],"title":"River Landscape with Riders", "institution":"Rijksmuseum Amsterdam","license":"http://creativecommons.org/publicdomain/zero/1.0/deed.en"}]' http://127.0.0.1:5000/ingest
 ```
@@ -46,6 +44,6 @@ this should return you the batch id - and you can check status with a link like:
 If the import is susccessful you should be able to access the viewer at path like /id/: `http://127.0.0.1:5000/SK-A-4118`
 usable with OEmbed or in Mirador via IIIF manifest link at /id/manifest.json.
 
-Note: In case you use Kitematic or docker installed in a virtual machine, you must change in the docker-compose-local.yml the variable SERVER_NAME and provide there relevant IP address instead (and use this ip in the following examples).
+Note: In case you use Kitematic or docker installed in a virtual machine, you must change in the docker-compose-local.yml the variables SERVER_NAME and IIIF_SERVER and replace 127.0.0.1 with the relevant IP address. The same ip should be used in the urls of mentioned examples.
 
 
